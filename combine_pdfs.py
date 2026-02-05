@@ -3,7 +3,7 @@ from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 import sys
 import PyPDF2
-from typing import List
+from typing import List, Dict, Optional
 from datetime import datetime
 import os
 import webbrowser
@@ -20,7 +20,7 @@ class PDFCombinerApp:
         
         # Center window on screen
         window_width = 700
-        window_height = 580
+        window_height = 640
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -50,19 +50,35 @@ class PDFCombinerApp:
             except Exception:
                 pass
         
-        self.pdf_files: List[str] = []
+        # Data structure: list of dicts with 'path' and 'rotation' keys
+        self.pdf_files: List[Dict[str, any]] = []
         self.combine_order = tk.StringVar(value="display")
         self.drag_start_index = None
+        self.drag_start_y = None
+        self.is_dragging = False
+        self.auto_scroll_id = None  # Track auto-scroll timer during drag
+        self.updating_visuals = False  # Flag to prevent configure during visual updates
+        self.last_scrollregion = None  # Track last scrollregion to avoid unnecessary updates
+        self.row_visual_state = {}  # Track last background color of each row to avoid unnecessary updates
         self.output_directory = str(Path.home())
         self.output_filename = tk.StringVar(value="combined.pdf")
         self.last_output_file = None
         self.preview_window = None
         self.preview_file_index = None
         self.preview_label = None
+        self.preview_after_id = None
+        self.preview_delay_ms = 400
+        self.pending_preview_index = None
+        self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
+        self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         
-        # Add files button above list
+        # Frame for add button and preview checkbox
+        add_button_frame = tk.Frame(root)
+        add_button_frame.pack(padx=10, pady=(10, 5))
+        
+        # Add files button
         add_button = tk.Button(
-            root,
+            add_button_frame,
             text="Add PDFs to Combine...",
             command=self.add_files,
             width=25,
@@ -70,17 +86,27 @@ class PDFCombinerApp:
             fg="black",
             font=("Arial", 10)
         )
-        add_button.pack(padx=10, pady=(10, 5))
+        add_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Preview on hover checkbox
+        preview_checkbox = tk.Checkbutton(
+            add_button_frame,
+            text="Preview on Hover",
+            variable=self.preview_enabled,
+               command=self._on_preview_toggle,
+            font=("Arial", 9)
+        )
+        preview_checkbox.pack(side=tk.LEFT)
         
         # Title above list
         title_label = tk.Label(root, text="Order of Files to Combine:", font=("Arial", 10, "bold"))
         title_label.pack(anchor=tk.W, padx=10, pady=(5, 5))
         
-        # Listbox frame
+        # Custom scrollable frame for file list with rotation controls
         list_frame = tk.Frame(root)
         list_frame.pack(pady=(0, 10), padx=10, fill=tk.X)
         
-        # Column headers using fixed-width labels so columns align with listbox
+        # Column headers using fixed-width labels
         header_frame = tk.Frame(list_frame, bg="#E0E0E0")
         header_frame.pack(anchor=tk.W, fill=tk.X)
 
@@ -89,7 +115,7 @@ class PDFCombinerApp:
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
         num_hdr.pack(side=tk.LEFT)
 
-        filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=55, anchor='w')
+        filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=50, anchor='w')
         filename_hdr.pack(side=tk.LEFT)
 
         size_hdr = tk.Label(header_frame, text="File Size", font=hdr_font, bg="#E0E0E0", width=12, anchor='e')
@@ -98,33 +124,63 @@ class PDFCombinerApp:
         date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
         date_hdr.pack(side=tk.LEFT, padx=(6,0))
         
-        # Sub-frame for listbox and scrollbar to keep them aligned
-        listbox_scroll_frame = tk.Frame(list_frame)
+        rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=7, anchor='c')
+        rot_hdr.pack(side=tk.LEFT, padx=2)
+        
+        # Sub-frame for custom list frame and scrollbar (sized for ~8 rows)
+        listbox_scroll_frame = tk.Frame(list_frame, height=200)
         listbox_scroll_frame.pack(fill=tk.X)
+        listbox_scroll_frame.pack_propagate(False)  # Prevent children from resizing frame
         
         # Scrollbar
         scrollbar = tk.Scrollbar(listbox_scroll_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Listbox
-        self.file_listbox = tk.Listbox(
-            listbox_scroll_frame,
-            yscrollcommand=scrollbar.set,
-            height=10,
-            font=("Courier New", 9),
-            selectmode=tk.EXTENDED
-        )
-        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.file_listbox.yview)
+        # Canvas for scrolling - disable all focus highlighting
+        self.file_list_canvas = tk.Canvas(listbox_scroll_frame, yscrollcommand=scrollbar.set, bg="white", 
+                                          highlightthickness=0, bd=0, takefocus=0)
+        self.file_list_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.file_list_canvas.yview)
         
-        # Bind drag and drop events
-        self.file_listbox.bind("<Button-1>", self.on_mouse_down)
-        self.file_listbox.bind("<B1-Motion>", self.on_mouse_drag)
-        self.file_listbox.bind("<ButtonRelease-1>", self.on_mouse_up)
-        self.file_listbox.bind("<Delete>", lambda e: self.remove_file())
-        self.file_listbox.bind("<Motion>", self.on_listbox_hover)
-        self.file_listbox.bind("<Leave>", self.on_listbox_leave)
-        self.file_listbox.bind("<Double-Button-1>", self.on_file_double_click)
+        # Keep focus on canvas to prevent focus-change flicker
+        self.file_list_canvas.focus_set()
+        
+        # Inner frame for content
+        self.file_list_frame = tk.Frame(self.file_list_canvas, bg="white")
+        canvas_window = self.file_list_canvas.create_window((0, 0), window=self.file_list_frame, anchor="nw")
+        
+        # Store last scrollregion to avoid unnecessary updates
+        self.last_scrollregion = None
+        
+        # Configure scrollbar region - only when size actually changes
+        def on_frame_configure(event=None):
+            if self.updating_visuals:
+                return  # Skip during visual-only updates
+            
+            new_region = self.file_list_canvas.bbox("all")
+            if new_region != self.last_scrollregion:
+                self.last_scrollregion = new_region
+                self.file_list_canvas.configure(scrollregion=new_region)
+                # Make canvas window width match canvas width
+                if self.file_list_canvas.winfo_width() > 1:
+                    self.file_list_canvas.itemconfig(canvas_window, width=self.file_list_canvas.winfo_width())
+        
+        # Store configure function for manual calls
+        self.canvas_configure = on_frame_configure
+        
+        # Only bind to canvas resize, not frame configure (to avoid color change triggers)
+        self.file_list_canvas.bind("<Configure>", lambda e: on_frame_configure())
+        
+        # Bind mousewheel for scrolling
+        def _on_mousewheel(event):
+            self.file_list_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        
+        self.file_list_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Store references
+        self.canvas = self.file_list_canvas
+        self.scrollbar = scrollbar
+        self.file_listbox = None  # No legacy listbox anymore
         
         # File count label
         self.count_label = tk.Label(root, text="Files selected: 0", font=("Arial", 9))
@@ -149,15 +205,15 @@ class PDFCombinerApp:
 
         # Buttons to sort by Name / Size / Date (click toggles reverse for that key)
         btn_frame = tk.Frame(sort_frame)
-        btn_frame.pack(anchor=tk.W)
+        btn_frame.pack()
 
-        self.sort_name_button = tk.Button(btn_frame, text="Name", command=lambda: self.on_sort_clicked('name'), width=12)
+        self.sort_name_button = tk.Button(btn_frame, text="Name", command=lambda: self.on_sort_clicked('name'), width=12, state=tk.DISABLED)
         self.sort_name_button.pack(side=tk.LEFT, padx=4)
 
-        self.sort_size_button = tk.Button(btn_frame, text="Size", command=lambda: self.on_sort_clicked('size'), width=12)
+        self.sort_size_button = tk.Button(btn_frame, text="Size", command=lambda: self.on_sort_clicked('size'), width=12, state=tk.DISABLED)
         self.sort_size_button.pack(side=tk.LEFT, padx=4)
 
-        self.sort_date_button = tk.Button(btn_frame, text="Date", command=lambda: self.on_sort_clicked('date'), width=12)
+        self.sort_date_button = tk.Button(btn_frame, text="Date", command=lambda: self.on_sort_clicked('date'), width=12, state=tk.DISABLED)
         self.sort_date_button.pack(side=tk.LEFT, padx=4)
         
         # Button frame below listbox for Remove/Clear buttons
@@ -165,16 +221,17 @@ class PDFCombinerApp:
         listbox_button_frame.pack(pady=3)
         
         # Remove selected button
-        remove_button = tk.Button(
+        self.remove_button = tk.Button(
             listbox_button_frame,
             text="Remove Selected",
             command=self.remove_file,
             width=15,
             bg="#E0E0E0",
             fg="black",
-            font=("Arial", 10)
+            font=("Arial", 10),
+            state=tk.DISABLED  # Start disabled since list is empty
         )
-        remove_button.grid(row=0, column=0, padx=5)
+        self.remove_button.grid(row=0, column=0, padx=5)
         
         # Clear all button
         clear_button = tk.Button(
@@ -251,7 +308,7 @@ class PDFCombinerApp:
         center_frame.pack()
         
         # Combine button
-        combine_button = tk.Button(
+        self.combine_button = tk.Button(
             center_frame,
             text="Combine PDFs",
             command=self.combine_pdfs,
@@ -259,9 +316,10 @@ class PDFCombinerApp:
             fg="black",
             font=("Arial", 11),
             height=1,
-            width=20
+            width=20,
+            state=tk.DISABLED  # Start disabled until at least 2 files added
         )
-        combine_button.pack(side=tk.LEFT, padx=5)
+        self.combine_button.pack(side=tk.LEFT, padx=5)
         
         # (Removed: open-button replaced by a post-success dialog)
         
@@ -278,6 +336,21 @@ class PDFCombinerApp:
         )
         quit_button.pack(side=tk.LEFT, padx=5)
     
+    # Helper methods for file dict access
+    def get_file_path(self, file_entry: dict) -> str:
+        """Extract file path from file entry dict"""
+        return file_entry['path']
+    
+    def get_rotation(self, file_entry: dict) -> int:
+        """Extract rotation value from file entry dict"""
+        return file_entry.get('rotation', 0)
+    
+    def set_rotation(self, index: int, degrees: int):
+        """Update rotation for a file at given index"""
+        if 0 <= index < len(self.pdf_files):
+            self.pdf_files[index]['rotation'] = degrees
+            self.refresh_listbox()
+    
     def add_files(self):
         """Open file dialog to select PDF files"""
         files = filedialog.askopenfilenames(
@@ -289,9 +362,13 @@ class PDFCombinerApp:
         duplicate_count = 0
         duplicates = []
         
+        # Get existing paths for duplicate checking
+        existing_paths = {entry['path'] for entry in self.pdf_files}
+        
         for file in files:
-            if file not in self.pdf_files:
-                self.pdf_files.append(file)
+            if file not in existing_paths:
+                # Create dict entry with path and default rotation of 0
+                self.pdf_files.append({'path': file, 'rotation': 0})
                 added_count += 1
             else:
                 duplicate_count += 1
@@ -317,16 +394,35 @@ class PDFCombinerApp:
                 f"The following file(s) are already in the list and were not added:\n\n{duplicates_text}"
             )
     
+    def get_file_path(self, file_entry: Dict[str, any]) -> str:
+        """Extract file path from entry dict"""
+        return file_entry['path']
+    
+    def get_rotation(self, file_entry: Dict[str, any]) -> int:
+        """Extract rotation value from entry dict"""
+        return file_entry.get('rotation', 0)
+    
+    def set_rotation(self, index: int, degrees: int):
+        """Update rotation for a file at given index"""
+        if 0 <= index < len(self.pdf_files):
+            self.pdf_files[index]['rotation'] = degrees
+    
     def remove_file(self):
         """Remove selected file(s) from list"""
         try:
-            selections = self.file_listbox.curselection()
-            if not selections:
+            # Find selected rows by checking which ones have selection highlighting
+            selected_indices = []
+            rows = self.file_list_frame.winfo_children()
+            for i, row in enumerate(rows):
+                if hasattr(row, '_is_selected') and row._is_selected:
+                    selected_indices.append(i)
+            
+            if not selected_indices:
                 messagebox.showwarning("Warning", "Please select a file to remove.")
                 return
 
             # Delete in reverse order to avoid index shifting
-            for index in reversed(selections):
+            for index in reversed(selected_indices):
                 del self.pdf_files[index]
 
             # Refresh display and count; clear sort state so arrows disappear
@@ -339,12 +435,13 @@ class PDFCombinerApp:
                 self.refresh_listbox()
 
             self.update_count()
-        except IndexError:
+        except Exception:
             messagebox.showwarning("Warning", "Please select a file to remove.")
     
     def clear_files(self):
         """Clear all files from list"""
         self.pdf_files.clear()
+        self.rotation_vars.clear()
         try:
             # Clear any active sort when list is cleared
             self.sort_key = None
@@ -360,9 +457,11 @@ class PDFCombinerApp:
         """Update the file count label"""
         count = len(self.pdf_files)
         self.count_label.config(text=f"Files selected: {count}")
+        # Also update button states when file count changes
+        self._update_button_states()
     
-    def get_file_info(self, file_path: str) -> str:
-        """Get formatted file info with three columns: filename, filesize, date"""
+    def get_file_info(self, file_path: str) -> tuple:
+        """Get formatted file info. Returns tuple of (filename, filesize_str, date_str)"""
         try:
             file_stat = os.stat(file_path)
             size_bytes = file_stat.st_size
@@ -380,53 +479,193 @@ class PDFCombinerApp:
             date_str = mod_time.strftime("%m/%d/%Y")
             
             filename = Path(file_path).name
-            # Truncate long filenames so columns remain aligned in the fixed-width listbox
+            # Truncate long filenames so columns remain aligned
             max_filename_len = 55
             if len(filename) > max_filename_len:
                 filename = filename[: max_filename_len - 3] + "..."
 
-            # Format as three columns: filename (55 chars), size (12 chars), date (10 chars)
-            return f"{filename:<55} {size_str:>12}  {date_str}"
+            return (filename, size_str, date_str)
         except Exception:
-            return Path(file_path).name
+            return (Path(file_path).name, "N/A", "N/A")
 
-    def format_list_item(self, index: int, file_path: str) -> str:
-        """Return the listbox entry string with numbering plus file info."""
-        base = self.get_file_info(file_path)
-        return f"{index+1:>3}. {base}"
+    def format_list_item(self, index: int, file_entry: Dict[str, any]) -> str:
+        """Return formatted string for display. No longer used with custom frame, but kept for reference."""
+        file_path = self.get_file_path(file_entry)
+        filename, size_str, date_str = self.get_file_info(file_path)
+        rotation = self.get_rotation(file_entry)
+        return f"{index+1:>3}. {filename:<55} {size_str:>12}  {date_str}  {rotation}°"
 
     def refresh_listbox(self):
-        """Rebuild the listbox contents from `self.pdf_files`, applying numbering."""
-        self.file_listbox.delete(0, tk.END)
-        for i, pdf_file in enumerate(self.pdf_files):
-            item = self.format_list_item(i, pdf_file)
-            self.file_listbox.insert(tk.END, item)
+        """Rebuild the custom list frame from `self.pdf_files` with rotation controls."""
+        # Clear existing rows
+        for widget in self.file_list_frame.winfo_children():
+            widget.destroy()
+        
+        self.rotation_vars.clear()
+        self.row_visual_state.clear()  # Clear cached visual state since rows are rebuilt
+        
+        # Update button states after clearing
+        self.root.after_idle(self._update_button_states)
+        
+        for i, pdf_entry in enumerate(self.pdf_files):
+            file_path = self.get_file_path(pdf_entry)
+            rotation = self.get_rotation(pdf_entry)
+            
+            # Create row frame - disable focus to prevent focus-change flicker
+            row_frame = tk.Frame(self.file_list_frame, bg="white", height=24, takefocus=0)
+            row_frame.pack(fill=tk.X, padx=0, pady=0)
+            row_frame._index = i
+            row_frame._is_selected = False
+            
+            # Register drag and drop events on row
+            row_frame.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            row_frame.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
+            row_frame.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
+            row_frame.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            row_frame.bind("<Leave>", self.on_row_leave)
+            row_frame.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # Get file info
+            filename, size_str, date_str = self.get_file_info(file_path)
+            
+            # Number label
+            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Courier New", 9), bg="white", width=4, anchor='e')
+            num_label.pack(side=tk.LEFT, padx=(0, 2))
+            num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
+            num_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
+            num_label.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            num_label.bind("<Leave>", self.on_row_leave)
+            num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # Filename label
+            filename_label = tk.Label(row_frame, text=filename, font=("Courier New", 9), bg="white", width=50, anchor='w', justify=tk.LEFT)
+            filename_label.pack(side=tk.LEFT)
+            filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
+            filename_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
+            filename_label.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            filename_label.bind("<Leave>", self.on_row_leave)
+            filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # File size label
+            size_label = tk.Label(row_frame, text=size_str, font=("Courier New", 9), bg="white", width=12, anchor='e')
+            size_label.pack(side=tk.LEFT)
+            size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
+            size_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
+            size_label.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            size_label.bind("<Leave>", self.on_row_leave)
+            size_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # Date label
+            date_label = tk.Label(row_frame, text=date_str, font=("Courier New", 9), bg="white", width=11, anchor='w')
+            date_label.pack(side=tk.LEFT, padx=(6, 0))
+            date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
+            date_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
+            date_label.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            date_label.bind("<Leave>", self.on_row_leave)
+            date_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # Rotation dropdown
+            rotation_var = tk.StringVar(value=str(rotation))
+            self.rotation_vars[i] = rotation_var
+            
+            rotation_dropdown = ttk.Combobox(
+                row_frame,
+                textvariable=rotation_var,
+                values=["0", "90", "180", "270"],
+                width=5,
+                state="readonly",
+                font=("Courier New", 9)
+            )
+            rotation_dropdown.pack(side=tk.LEFT, padx=2)
+            
+            # Bind rotation change
+            def on_rotation_change(var, idx=i):
+                try:
+                    degrees = int(var.get())
+                    self.set_rotation(idx, degrees)
+                except ValueError:
+                    pass
+            
+            rotation_var.trace("w", lambda *args, var=rotation_var, idx=i: on_rotation_change(var, idx))
+            
+            # Bind events to dropdown too for consistency
+            rotation_dropdown.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            rotation_dropdown.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            rotation_dropdown.bind("<Leave>", self.on_row_leave)
+        
+        # Manually update canvas scrollregion after rebuilding list
+        self.root.after_idle(self.canvas_configure)
     
-    def on_mouse_down(self, event):
+    def on_row_click(self, event, index: int):
         """Handle mouse down event for drag and drop"""
-        self.drag_start_index = self.file_listbox.nearest(event.y)
+        # Find the row frame
+        rows = self.file_list_frame.winfo_children()
+        if index < len(rows):
+            row_frame = rows[index]
+            
+            # Toggle selection
+            if event.state & 0x0004:  # Ctrl key
+                row_frame._is_selected = not row_frame._is_selected
+            else:
+                # Clear all other selections
+                for row in rows:
+                    row._is_selected = False
+                row_frame._is_selected = True
+            
+            # Update visuals immediately
+            self._update_row_visuals()
+            self.drag_start_index = index
+            self.drag_start_y = event.y_root
+            self.is_dragging = False
     
-    def on_mouse_drag(self, event):
+    def on_row_drag(self, event, index: int):
         """Handle mouse drag event"""
         if self.drag_start_index is None:
             return
         
-        current_index = self.file_listbox.nearest(event.y)
+        # Only start dragging if mouse has moved more than 5 pixels
+        if not self.is_dragging:
+            if abs(event.y_root - self.drag_start_y) < 5:
+                return  # Not enough movement to constitute a drag
+            self.is_dragging = True
         
-        if current_index != self.drag_start_index and 0 <= current_index < len(self.pdf_files):
-            # Reorder the backing list according to drag-and-drop and refresh display
-            dragged_file = self.pdf_files.pop(self.drag_start_index)
-            self.pdf_files.insert(current_index, dragged_file)
+        # Auto-scroll when dragging near edges of canvas
+        self._auto_scroll_during_drag(event)
+        
+        # Get current position
+        current_y = event.y_root
+        rows = self.file_list_frame.winfo_children()
+        
+        # Find which row we're over by converting to coordinates relative to file_list_frame
+        drag_y = self.file_list_frame.winfo_pointery() - self.file_list_frame.winfo_rooty()
+        
+        # Find target index
+        current_index = None
+        for i, row in enumerate(rows):
+            row_y = row.winfo_y()
+            row_height = row.winfo_height()
+            if drag_y >= row_y - row_height // 2 and drag_y < row_y + row_height // 2:
+                current_index = i
+                break
+        
+        if current_index is not None and current_index != self.drag_start_index and 0 <= current_index < len(self.pdf_files):
+            # Reorder the backing list
+            dragged_entry = self.pdf_files.pop(self.drag_start_index)
+            self.pdf_files.insert(current_index, dragged_entry)
             self.drag_start_index = current_index
 
-            # Refresh list display and restore selection to the moved item
+            # Refresh and restore selection
             self.refresh_listbox()
-            try:
-                self.file_listbox.selection_set(current_index)
-            except Exception:
-                pass
+            rows = self.file_list_frame.winfo_children()
+            if current_index < len(rows):
+                rows[current_index]._is_selected = True
+            self._update_row_visuals()
 
-            # User manually reordered via drag-and-drop: clear any active sort indicators
+            # Clear sort indicators
             try:
                 self.sort_key = None
                 self.sort_reverse = False
@@ -434,35 +673,99 @@ class PDFCombinerApp:
             except Exception:
                 pass
     
-    def on_mouse_up(self, event):
+    def on_row_release(self, event, index: int):
         """Handle mouse up event"""
         self.drag_start_index = None
+        self.drag_start_y = None
+        self.is_dragging = False
+        # Cancel any pending auto-scroll
+        if self.auto_scroll_id:
+            self.root.after_cancel(self.auto_scroll_id)
+            self.auto_scroll_id = None
     
-    def on_listbox_hover(self, event):
-        """Handle listbox hover to show preview"""
-        index = self.file_listbox.nearest(event.y)
+    def _auto_scroll_during_drag(self, event):
+        """Auto-scroll the canvas when dragging near top or bottom edges"""
+        # Get mouse position relative to canvas
+        canvas_y = event.y_root - self.file_list_canvas.winfo_rooty()
+        canvas_height = self.file_list_canvas.winfo_height()
         
-        if index < 0 or index >= len(self.pdf_files):
+        scroll_zone = 30  # Pixels from edge to trigger scrolling
+        scroll_speed = 1  # Lines to scroll per update
+        
+        # Check if near top or bottom
+        if canvas_y < scroll_zone:
+            # Near top - scroll up
+            self.file_list_canvas.yview_scroll(-1, "units")
+            # Schedule next scroll
+            if self.auto_scroll_id:
+                self.root.after_cancel(self.auto_scroll_id)
+            self.auto_scroll_id = self.root.after(50, lambda: self._auto_scroll_during_drag(event) if self.is_dragging else None)
+        elif canvas_y > canvas_height - scroll_zone:
+            # Near bottom - scroll down
+            self.file_list_canvas.yview_scroll(1, "units")
+            # Schedule next scroll
+            if self.auto_scroll_id:
+                self.root.after_cancel(self.auto_scroll_id)
+            self.auto_scroll_id = self.root.after(50, lambda: self._auto_scroll_during_drag(event) if self.is_dragging else None)
+        else:
+            # In middle zone - cancel any pending scroll
+            if self.auto_scroll_id:
+                self.root.after_cancel(self.auto_scroll_id)
+                self.auto_scroll_id = None
+    
+    def _on_preview_toggle(self):
+        """Hide preview when checkbox is unchecked"""
+        if not self.preview_enabled.get():
+            if self.preview_after_id:
+                self.root.after_cancel(self.preview_after_id)
+                self.preview_after_id = None
+            self.pending_preview_index = None
             self.hide_preview()
+    
+    def on_row_hover(self, event, index: int):
+        """Handle row hover to show preview"""
+        # Only show preview if enabled
+        if not self.preview_enabled.get():
             return
         
-        # Only show preview if hovering over a different file
-        if self.preview_file_index != index:
-            self.show_preview(index, event)
+        if 0 <= index < len(self.pdf_files):
+            file_entry = self.pdf_files[index]
+            file_path = self.get_file_path(file_entry)
+            
+            if self.preview_file_index != index:
+                self._schedule_preview(index, file_path, event.x_root, event.y_root)
     
-    def on_listbox_leave(self, event):
-        """Hide preview when mouse leaves listbox"""
+    def on_row_leave(self, event):
+        """Hide preview when mouse leaves row"""
+        if self.preview_after_id:
+            self.root.after_cancel(self.preview_after_id)
+            self.preview_after_id = None
+        self.pending_preview_index = None
         self.hide_preview()
     
-    def on_file_double_click(self, event):
-        """Open selected PDF file with system default viewer on double-click"""
-        selection = self.file_listbox.curselection()
-        if not selection:
-            return
+    def _schedule_preview(self, index: int, file_path: str, x_root: int, y_root: int):
+        """Schedule the preview popup with a short delay"""
+        if self.preview_after_id:
+            self.root.after_cancel(self.preview_after_id)
+            self.preview_after_id = None
         
-        index = selection[0]
+        self.pending_preview_index = index
+        
+        def _show_if_still_hovered():
+            self.preview_after_id = None
+            if not self.preview_enabled.get():
+                return
+            if self.pending_preview_index != index:
+                return
+            self.show_preview(index, x_root, y_root, file_path)
+        
+        self.preview_after_id = self.root.after(self.preview_delay_ms, _show_if_still_hovered)
+    
+    def on_row_double_click(self, event, index: int):
+        """Open selected PDF file with system default viewer on double-click"""
         if 0 <= index < len(self.pdf_files):
-            file_path = self.pdf_files[index]
+            file_entry = self.pdf_files[index]
+            file_path = self.get_file_path(file_entry)
             try:
                 # Use os.startfile on Windows to open with default PDF viewer
                 if sys.platform.startswith('win'):
@@ -474,33 +777,70 @@ class PDFCombinerApp:
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open file: {e}")
     
-    def get_pdf_thumbnail(self, file_path: str, width: int = 200, height: int = 280) -> Image.Image:
-        """Extract first page of PDF and return as PIL Image"""
-        try:
-            with open(file_path, 'rb') as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
-                
-                if len(pdf_reader.pages) == 0:
-                    return None
-                
-                # We'll create a simple text image since PyPDF2 doesn't directly render
-                # Extract text from first page to display
-                first_page = pdf_reader.pages[0]
-                text = first_page.extract_text()[:200]  # First 200 chars
-                
-                # Create a simple image with the text
-                img = Image.new('RGB', (width, height), color='white')
-                # Note: We can't easily render text with PIL without additional libraries
-                # So we'll just create a placeholder with page count info
-                return img
-        except Exception:
-            return None
+    def _update_row_visuals(self):
+        """Update visual highlighting of selected rows - only updates rows that changed"""
+        self.updating_visuals = True  # Prevent configure events
+        
+        rows = self.file_list_frame.winfo_children()
+        
+        # Use a noticeable but pleasant selection color
+        for i, row in enumerate(rows):
+            if hasattr(row, '_is_selected') and row._is_selected:
+                bg_color = "#D0E8FF"  # Light blue - clearly visible
+            else:
+                bg_color = "white"
+            
+            # Only update if color actually changed
+            if self.row_visual_state.get(i) != bg_color:
+                row.config(bg=bg_color)
+                # Update child labels
+                for child in row.winfo_children():
+                    if isinstance(child, tk.Label):
+                        child.config(bg=bg_color)
+                self.row_visual_state[i] = bg_color
+        
+        # Keep focus stable on canvas to prevent focus-change flicker
+        self.file_list_canvas.focus_set()
+        self.updating_visuals = False
+        
+        # Update button states based on selection
+        self._update_button_states()
     
-    def show_preview(self, index: int, event):
+    def _update_button_states(self):
+        """Enable/disable buttons based on current selection state"""
+        # Check if any files are selected
+        has_selection = False
+        rows = self.file_list_frame.winfo_children()
+        for row in rows:
+            if hasattr(row, '_is_selected') and row._is_selected:
+                has_selection = True
+                break
+        
+        # Enable/disable Remove Selected button
+        if has_selection:
+            self.remove_button.config(state=tk.NORMAL)
+        else:
+            self.remove_button.config(state=tk.DISABLED)
+        
+        # Enable/disable Combine PDFs button (needs at least 2 files)
+        if len(self.pdf_files) >= 2:
+            self.combine_button.config(state=tk.NORMAL)
+        else:
+            self.combine_button.config(state=tk.DISABLED)
+        
+        # Enable/disable sort buttons (need at least 2 files to sort)
+        if len(self.pdf_files) >= 2:
+            self.sort_name_button.config(state=tk.NORMAL)
+            self.sort_size_button.config(state=tk.NORMAL)
+            self.sort_date_button.config(state=tk.NORMAL)
+        else:
+            self.sort_name_button.config(state=tk.DISABLED)
+            self.sort_size_button.config(state=tk.DISABLED)
+            self.sort_date_button.config(state=tk.DISABLED)
+    
+    def show_preview(self, index: int, x_root: int, y_root: int, file_path: str):
         """Show a preview popup with PDF thumbnail"""
         self.hide_preview()
-        
-        file_path = self.pdf_files[index]
         
         try:
             # Create preview window
@@ -566,8 +906,8 @@ class PDFCombinerApp:
             filename_label.pack(padx=5, pady=3)
             
             # Position near mouse
-            x = event.x_root + 15
-            y = event.y_root + 15
+            x = x_root + 15
+            y = y_root + 15
             self.preview_window.geometry(f"+{x}+{y}")
             
             self.preview_file_index = index
@@ -601,18 +941,18 @@ class PDFCombinerApp:
         """Sort `self.pdf_files` according to current sort_key and sort_reverse, then refresh listbox."""
         try:
             if self.sort_key == 'name':
-                self.pdf_files.sort(key=lambda x: Path(x).name.lower(), reverse=self.sort_reverse)
+                self.pdf_files.sort(key=lambda x: Path(x['path']).name.lower(), reverse=self.sort_reverse)
             elif self.sort_key == 'size':
-                def _size_key(p):
+                def _size_key(entry):
                     try:
-                        return os.path.getsize(p)
+                        return os.path.getsize(entry['path'])
                     except Exception:
                         return -1
                 self.pdf_files.sort(key=_size_key, reverse=self.sort_reverse)
             elif self.sort_key == 'date':
-                def _date_key(p):
+                def _date_key(entry):
                     try:
-                        return os.path.getmtime(p)
+                        return os.path.getmtime(entry['path'])
                     except Exception:
                         return 0
                 self.pdf_files.sort(key=_date_key, reverse=self.sort_reverse)
@@ -678,12 +1018,8 @@ class PDFCombinerApp:
             if not messagebox.askyesno("Overwrite File", f"'{output_file}' already exists. Overwrite?"):
                 return
 
-        # Determine the order of PDFs to combine
+        # Get list of file entries to combine
         files_to_combine = self.pdf_files.copy()
-        
-        if self.combine_order.get() == "alphabetical":
-            # Sort by filename alphabetically
-            files_to_combine.sort(key=lambda x: Path(x).name.lower())
         
         # Show summary before combining
         self.show_combine_summary(output_file, files_to_combine)
@@ -695,14 +1031,16 @@ class PDFCombinerApp:
         total_size_bytes = 0
         
         try:
-            for pdf_file in files_to_combine:
+            for file_entry in files_to_combine:
+                file_path = self.get_file_path(file_entry)
+                
                 # Count pages
-                with open(pdf_file, 'rb') as f:
+                with open(file_path, 'rb') as f:
                     pdf_reader = PyPDF2.PdfReader(f)
                     total_pages += len(pdf_reader.pages)
                 
                 # Get file size
-                total_size_bytes += os.path.getsize(pdf_file)
+                total_size_bytes += os.path.getsize(file_path)
         except Exception as e:
             messagebox.showerror("Error", f"Could not read PDF information: {e}")
             return
@@ -718,7 +1056,7 @@ class PDFCombinerApp:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("400x320")
+        summary_window.geometry("400x260")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
@@ -726,8 +1064,8 @@ class PDFCombinerApp:
         # Center the summary window
         summary_window.update_idletasks()
         x = (summary_window.winfo_screenwidth() // 2) - (400 // 2)
-        y = (summary_window.winfo_screenheight() // 2) - (320 // 2)
-        summary_window.geometry(f"400x320+{x}+{y}")
+        y = (summary_window.winfo_screenheight() // 2) - (260 // 2)
+        summary_window.geometry(f"400x260+{x}+{y}")
         
         # Title
         title_label = tk.Label(
@@ -743,34 +1081,64 @@ class PDFCombinerApp:
         info_frame.pack(pady=10, padx=20, fill=tk.X)
         
         # Files count
+        files_row = tk.Frame(info_frame)
+        files_row.pack(fill=tk.X, pady=5)
         files_label = tk.Label(
-            info_frame,
-            text=f"Files to combine:  {len(files_to_combine)} files",
+            files_row,
+            text="Files to combine:",
+            font=("Arial", 10, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        files_label.pack(side=tk.LEFT)
+        files_value = tk.Label(
+            files_row,
+            text=f"  {len(files_to_combine)} files",
             font=("Arial", 10, "bold"),
             fg="#0066CC",
             anchor="w"
         )
-        files_label.pack(fill=tk.X, pady=5)
+        files_value.pack(side=tk.LEFT)
         
         # Total pages
+        pages_row = tk.Frame(info_frame)
+        pages_row.pack(fill=tk.X, pady=5)
         pages_label = tk.Label(
-            info_frame,
-            text=f"Total pages:  {total_pages} pages",
+            pages_row,
+            text="Total pages:",
+            font=("Arial", 10, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        pages_label.pack(side=tk.LEFT)
+        pages_value = tk.Label(
+            pages_row,
+            text=f"  {total_pages} pages",
             font=("Arial", 10, "bold"),
             fg="#0066CC",
             anchor="w"
         )
-        pages_label.pack(fill=tk.X, pady=5)
+        pages_value.pack(side=tk.LEFT)
         
         # Total size
+        size_row = tk.Frame(info_frame)
+        size_row.pack(fill=tk.X, pady=5)
         size_label = tk.Label(
-            info_frame,
-            text=f"Total size:  {size_str}",
+            size_row,
+            text="Total size:",
+            font=("Arial", 10, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        size_label.pack(side=tk.LEFT)
+        size_value = tk.Label(
+            size_row,
+            text=f"  {size_str}",
             font=("Arial", 10, "bold"),
             fg="#0066CC",
             anchor="w"
         )
-        size_label.pack(fill=tk.X, pady=5)
+        size_value.pack(side=tk.LEFT)
         
         # Button frame
         button_frame = tk.Frame(summary_window)
@@ -867,31 +1235,39 @@ class PDFCombinerApp:
         
         # Run combine operation in thread
         def combine_thread():
-            pdf_merger = None
+            pdf_writer = None
             try:
-                # Create PDF merger object
-                pdf_merger = PyPDF2.PdfMerger()
+                # Create PDF writer object
+                pdf_writer = PyPDF2.PdfWriter()
                 
-                # Add all PDFs to merger in the selected order
-                for i, pdf_file in enumerate(files_to_combine):
+                # Add all PDFs to writer in the selected order with rotation applied
+                for i, file_entry in enumerate(files_to_combine):
                     # Check if cancelled
                     if cancel_flag['cancelled']:
                         self.root.after(0, lambda: (
                             progress_window.destroy(),
                             messagebox.showinfo("Cancelled", "PDF combining operation was cancelled.")
                         ))
-                        if pdf_merger:
-                            pdf_merger.close()
                         return
                     
+                    file_path = self.get_file_path(file_entry)
+                    rotation = self.get_rotation(file_entry)
+                    
                     # Update progress
-                    self.root.after(0, lambda idx=i, f=pdf_file: (
+                    self.root.after(0, lambda idx=i, f=file_path: (
                         progress_label.config(text=f"Processing: {Path(f).name}"),
                         progress_bar.config(value=idx),
                         counter_label.config(text=f"{idx} of {len(files_to_combine)} files processed")
                     ))
                     
-                    pdf_merger.append(pdf_file)
+                    # Read the PDF and add pages with rotation
+                    with open(file_path, 'rb') as pdf_file:
+                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                        for page in pdf_reader.pages:
+                            # Apply rotation if specified
+                            if rotation != 0:
+                                page.rotate(rotation)
+                            pdf_writer.add_page(page)
                 
                 # Check if cancelled before writing
                 if cancel_flag['cancelled']:
@@ -899,8 +1275,6 @@ class PDFCombinerApp:
                         progress_window.destroy(),
                         messagebox.showinfo("Cancelled", "PDF combining operation was cancelled.")
                     ))
-                    if pdf_merger:
-                        pdf_merger.close()
                     return
                 
                 # Update for writing phase
@@ -912,8 +1286,8 @@ class PDFCombinerApp:
                 ))
                 
                 # Write combined PDF
-                pdf_merger.write(output_file)
-                pdf_merger.close()
+                with open(output_file, 'wb') as out_file:
+                    pdf_writer.write(out_file)
                 
                 # Remember the output file
                 self.last_output_file = output_file
@@ -925,15 +1299,11 @@ class PDFCombinerApp:
                 ))
                 
             except FileNotFoundError as e:
-                if pdf_merger:
-                    pdf_merger.close()
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
                     messagebox.showerror("Error", f"File not found: {e}")
                 ))
             except Exception as e:
-                if pdf_merger:
-                    pdf_merger.close()
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
                     messagebox.showerror("Error", f"An error occurred: {str(e)}")
