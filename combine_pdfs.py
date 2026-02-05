@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import os
 import webbrowser
+import json
 from PIL import Image, ImageTk
 import io
 import fitz  # PyMuPDF
@@ -50,7 +51,7 @@ class PDFCombinerApp:
             except Exception:
                 pass
         
-        # Data structure: list of dicts with 'path' and 'rotation' keys
+        # Data structure: list of dicts with 'path', 'rotation', and 'page_range' keys
         self.pdf_files: List[Dict[str, any]] = []
         self.combine_order = tk.StringVar(value="display")
         self.drag_start_index = None
@@ -60,7 +61,8 @@ class PDFCombinerApp:
         self.updating_visuals = False  # Flag to prevent configure during visual updates
         self.last_scrollregion = None  # Track last scrollregion to avoid unnecessary updates
         self.row_visual_state = {}  # Track last background color of each row to avoid unnecessary updates
-        self.output_directory = str(Path.home())
+        self.output_directory = str(Path.home() / "Documents")
+        self.add_files_directory = str(Path.home() / "Documents")  # Default directory for adding files
         self.output_filename = tk.StringVar(value="combined.pdf")
         self.last_output_file = None
         self.preview_window = None
@@ -70,7 +72,21 @@ class PDFCombinerApp:
         self.preview_delay_ms = 400
         self.pending_preview_index = None
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
+        self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
+        self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
+        self.page_range_last_valid = {}  # Track last valid page range per index
+        
+        # Set config file location to AppData\Roaming\PDFCombiner on Windows
+        if os.name == 'nt' and 'APPDATA' in os.environ:
+            config_dir = Path(os.environ['APPDATA']) / "PDFCombiner"
+        else:
+            # Fallback for other platforms
+            config_dir = Path.home() / ".pdfcombiner"
+        self.config_file = config_dir / "config.json"
+        
+        # Load saved settings
+        self._load_settings()
         
         # Frame for add button and preview checkbox
         add_button_frame = tk.Frame(root)
@@ -79,7 +95,7 @@ class PDFCombinerApp:
         # Add files button
         add_button = tk.Button(
             add_button_frame,
-            text="Add PDFs to Combine...",
+            text="Add PDFs to List...",
             command=self.add_files,
             width=25,
             bg="#E0E0E0",
@@ -91,7 +107,7 @@ class PDFCombinerApp:
         # Preview on hover checkbox
         preview_checkbox = tk.Checkbutton(
             add_button_frame,
-            text="Preview on Hover",
+            text="Preview first page on hover",
             variable=self.preview_enabled,
                command=self._on_preview_toggle,
             font=("Arial", 9)
@@ -99,7 +115,7 @@ class PDFCombinerApp:
         preview_checkbox.pack(side=tk.LEFT)
         
         # Title above list
-        title_label = tk.Label(root, text="Order of Files to Combine:", font=("Arial", 10, "bold"))
+        title_label = tk.Label(root, text="List and Order of Files to Combine:", font=("Arial", 10, "bold"))
         title_label.pack(anchor=tk.W, padx=10, pady=(5, 5))
         
         # Custom scrollable frame for file list with rotation controls
@@ -115,7 +131,7 @@ class PDFCombinerApp:
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
         num_hdr.pack(side=tk.LEFT)
 
-        filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=50, anchor='w')
+        filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=42, anchor='w')
         filename_hdr.pack(side=tk.LEFT)
 
         size_hdr = tk.Label(header_frame, text="File Size", font=hdr_font, bg="#E0E0E0", width=12, anchor='e')
@@ -123,6 +139,9 @@ class PDFCombinerApp:
 
         date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
         date_hdr.pack(side=tk.LEFT, padx=(6,0))
+        
+        pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
+        pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
         
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=7, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
@@ -157,7 +176,15 @@ class PDFCombinerApp:
             if self.updating_visuals:
                 return  # Skip during visual-only updates
             
-            new_region = self.file_list_canvas.bbox("all")
+            # Get the actual bounding box and ensure it starts at (0, 0)
+            bbox = self.file_list_canvas.bbox("all")
+            if bbox:
+                # bbox is (x1, y1, x2, y2) - ensure it starts at 0,0
+                new_region = (0, 0, bbox[2], bbox[3])
+            else:
+                # Empty frame
+                new_region = (0, 0, 1, 1)
+            
             if new_region != self.last_scrollregion:
                 self.last_scrollregion = new_region
                 self.file_list_canvas.configure(scrollregion=new_region)
@@ -183,7 +210,7 @@ class PDFCombinerApp:
         self.file_listbox = None  # No legacy listbox anymore
         
         # File count label
-        self.count_label = tk.Label(root, text="Files selected: 0", font=("Arial", 9))
+        self.count_label = tk.Label(root, text="Files to combine: 0", font=("Arial", 9))
         self.count_label.pack(pady=1)
         
         # Drag and drop instruction
@@ -196,7 +223,7 @@ class PDFCombinerApp:
         drag_drop_note.pack(pady=1)
         
         # Sort selection frame (replace previous Combine Order controls)
-        sort_frame = tk.LabelFrame(root, text="Combine List Order Sort", font=("Arial", 10, "bold"), padx=10, pady=5)
+        sort_frame = tk.LabelFrame(root, text="Sort List", font=("Arial", 10, "bold"), padx=10, pady=5)
         sort_frame.pack(pady=5, padx=10, fill=tk.X)
 
         # Sorting state
@@ -234,16 +261,17 @@ class PDFCombinerApp:
         self.remove_button.grid(row=0, column=0, padx=5)
         
         # Clear all button
-        clear_button = tk.Button(
+        self.clear_button = tk.Button(
             listbox_button_frame,
             text="Clear All",
             command=self.clear_files,
             width=15,
             bg="#E0E0E0",
             fg="black",
-            font=("Arial", 10)
+            font=("Arial", 10),
+            state=tk.DISABLED  # Start disabled since list is empty
         )
-        clear_button.grid(row=0, column=1, padx=5)
+        self.clear_button.grid(row=0, column=1, padx=5)
         
         # Output settings frame
         output_frame = tk.LabelFrame(root, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=8)
@@ -299,13 +327,27 @@ class PDFCombinerApp:
         # Pack the Browse button to the right of the save-location box
         browse_button.pack(side=tk.LEFT, padx=5)
         
+        # Bookmark options frame
+        bookmark_frame = tk.Frame(root)
+        bookmark_frame.pack(pady=(5, 0), padx=10)
+        
+        bookmark_checkbox = tk.Checkbutton(
+            bookmark_frame,
+            text="Add filename bookmarks to combined PDF",
+            variable=self.add_filename_bookmarks,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        bookmark_checkbox.pack()
+        
         # Bottom button frame
-        bottom_frame = tk.Frame(root)
+        bottom_frame = tk.Frame(root, height=40)
         bottom_frame.pack(pady=5, padx=10, fill=tk.X)
+        bottom_frame.pack_propagate(False)
         
         # Center frame for equal-width buttons
         center_frame = tk.Frame(bottom_frame)
-        center_frame.pack()
+        center_frame.place(relx=0.5, rely=0.5, anchor="center")
         
         # Combine button
         self.combine_button = tk.Button(
@@ -335,6 +377,21 @@ class PDFCombinerApp:
             width=20
         )
         quit_button.pack(side=tk.LEFT, padx=5)
+        
+        # Copyright notice aligned to the right in the same row
+        copyright_label = tk.Label(
+            bottom_frame,
+            text="© 2026 tgtechy",
+            font=("Arial", 8, "underline"),
+            fg="#1A5FB4",
+            bg=bottom_frame.cget("bg"),
+            cursor="hand2"
+        )
+        copyright_label.place(relx=1.0, rely=0.5, anchor="e", x=-5)
+        copyright_label.bind(
+            "<Button-1>",
+            lambda e: webbrowser.open_new("https://github.com/tgtechy/CombinePDFs")
+        )
     
     # Helper methods for file dict access
     def get_file_path(self, file_entry: dict) -> str:
@@ -351,11 +408,60 @@ class PDFCombinerApp:
             self.pdf_files[index]['rotation'] = degrees
             self.refresh_listbox()
     
+    def _load_settings(self):
+        """Load saved settings from config file"""
+        try:
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    settings = json.load(f)
+                    
+                # Load output directory if it exists
+                if 'output_directory' in settings:
+                    saved_dir = settings['output_directory']
+                    if os.path.exists(saved_dir):
+                        self.output_directory = saved_dir
+                
+                # Load add files directory if it exists
+                if 'add_files_directory' in settings:
+                    saved_dir = settings['add_files_directory']
+                    if os.path.exists(saved_dir):
+                        self.add_files_directory = saved_dir
+                
+                # Load preview enabled state
+                if 'preview_enabled' in settings:
+                    self.preview_enabled.set(settings['preview_enabled'])
+                
+                # Load add filename bookmarks state
+                if 'add_filename_bookmarks' in settings:
+                    self.add_filename_bookmarks.set(settings['add_filename_bookmarks'])
+        except Exception:
+            # If loading fails, just use defaults
+            pass
+    
+    def _save_settings(self):
+        """Save current settings to config file"""
+        try:
+            # Ensure config directory exists
+            self.config_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            settings = {
+                'output_directory': self.output_directory,
+                'add_files_directory': self.add_files_directory,
+                'preview_enabled': self.preview_enabled.get(),
+                'add_filename_bookmarks': self.add_filename_bookmarks.get()
+            }
+            with open(self.config_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+        except Exception:
+            # Silently fail if we can't save settings
+            pass
+    
     def add_files(self):
         """Open file dialog to select PDF files"""
         files = filedialog.askopenfilenames(
             title="Select PDF files",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            initialdir=self.add_files_directory
         )
         
         added_count = 0
@@ -367,9 +473,11 @@ class PDFCombinerApp:
         
         for file in files:
             if file not in existing_paths:
-                # Create dict entry with path and default rotation of 0
-                self.pdf_files.append({'path': file, 'rotation': 0})
+                # Create dict entry with path and default rotation/page range
+                self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All'})
                 added_count += 1
+                # Update the add files directory to the directory of the last selected file
+                self.add_files_directory = str(Path(file).parent)
             else:
                 duplicate_count += 1
                 duplicates.append(Path(file).name)
@@ -386,6 +494,10 @@ class PDFCombinerApp:
 
         self.update_count()
         
+        # Save settings if files were added
+        if added_count > 0:
+            self._save_settings()
+        
         # Show warning if duplicates were attempted
         if duplicate_count > 0:
             duplicates_text = "\n".join(f"  • {dup}" for dup in duplicates)
@@ -401,11 +513,21 @@ class PDFCombinerApp:
     def get_rotation(self, file_entry: Dict[str, any]) -> int:
         """Extract rotation value from entry dict"""
         return file_entry.get('rotation', 0)
+
+    def get_page_range(self, file_entry: Dict[str, any]) -> str:
+        """Extract page range from entry dict"""
+        return file_entry.get('page_range', 'All')
     
     def set_rotation(self, index: int, degrees: int):
         """Update rotation for a file at given index"""
         if 0 <= index < len(self.pdf_files):
             self.pdf_files[index]['rotation'] = degrees
+
+    def set_page_range(self, index: int, page_range: str):
+        """Update page range for a file at given index"""
+        if 0 <= index < len(self.pdf_files):
+            cleaned = page_range.strip()
+            self.pdf_files[index]['page_range'] = cleaned if cleaned else 'All'
     
     def remove_file(self):
         """Remove selected file(s) from list"""
@@ -419,6 +541,12 @@ class PDFCombinerApp:
             
             if not selected_indices:
                 messagebox.showwarning("Warning", "Please select a file to remove.")
+                return
+
+            # Confirm removal
+            count = len(selected_indices)
+            file_word = "file" if count == 1 else "files"
+            if not messagebox.askyesno("Confirm Removal", f"Remove {count} selected {file_word}?"):
                 return
 
             # Delete in reverse order to avoid index shifting
@@ -440,8 +568,18 @@ class PDFCombinerApp:
     
     def clear_files(self):
         """Clear all files from list"""
+        if not self.pdf_files:
+            return
+        
+        count = len(self.pdf_files)
+        file_word = "file" if count == 1 else "files"
+        if not messagebox.askyesno("Confirm Clear All", f"Remove all {count} {file_word}?"):
+            return
+        
         self.pdf_files.clear()
         self.rotation_vars.clear()
+        self.page_range_vars.clear()
+        self.page_range_last_valid.clear()
         try:
             # Clear any active sort when list is cleared
             self.sort_key = None
@@ -456,7 +594,7 @@ class PDFCombinerApp:
     def update_count(self):
         """Update the file count label"""
         count = len(self.pdf_files)
-        self.count_label.config(text=f"Files selected: {count}")
+        self.count_label.config(text=f"Files to combine: {count}")
         # Also update button states when file count changes
         self._update_button_states()
     
@@ -480,7 +618,7 @@ class PDFCombinerApp:
             
             filename = Path(file_path).name
             # Truncate long filenames so columns remain aligned
-            max_filename_len = 55
+            max_filename_len = 45
             if len(filename) > max_filename_len:
                 filename = filename[: max_filename_len - 3] + "..."
 
@@ -502,6 +640,7 @@ class PDFCombinerApp:
             widget.destroy()
         
         self.rotation_vars.clear()
+        self.page_range_vars.clear()
         self.row_visual_state.clear()  # Clear cached visual state since rows are rebuilt
         
         # Update button states after clearing
@@ -539,7 +678,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Courier New", 9), bg="white", width=50, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Courier New", 9), bg="white", width=42, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT)
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -567,6 +706,31 @@ class PDFCombinerApp:
             date_label.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
             date_label.bind("<Leave>", self.on_row_leave)
             date_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
+            
+            # Page range entry
+            page_range = self.get_page_range(pdf_entry)
+            page_range_var = tk.StringVar(value=page_range)
+            self.page_range_vars[i] = page_range_var
+            self.page_range_last_valid[i] = page_range
+            
+            page_entry = tk.Entry(
+                row_frame,
+                textvariable=page_range_var,
+                width=10,
+                font=("Courier New", 9)
+            )
+            page_entry.pack(side=tk.LEFT, padx=(4, 0))
+            
+            def on_page_range_change(var, idx=i):
+                self.set_page_range(idx, var.get())
+            
+            page_range_var.trace("w", lambda *args, var=page_range_var, idx=i: on_page_range_change(var, idx))
+            page_entry.bind("<FocusOut>", lambda e, idx=i, var=page_range_var, ent=page_entry: self._validate_page_range(idx, var, ent))
+            page_entry.bind("<Return>", lambda e, idx=i, var=page_range_var, ent=page_entry: self._validate_page_range(idx, var, ent))
+            
+            page_entry.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
+            page_entry.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            page_entry.bind("<Leave>", self.on_row_leave)
             
             # Rotation dropdown
             rotation_var = tk.StringVar(value=str(rotation))
@@ -675,42 +839,64 @@ class PDFCombinerApp:
     
     def on_row_release(self, event, index: int):
         """Handle mouse up event"""
+        self.is_dragging = False
         self.drag_start_index = None
         self.drag_start_y = None
-        self.is_dragging = False
-        # Cancel any pending auto-scroll
+        # Cancel any pending auto-scroll immediately and thoroughly
         if self.auto_scroll_id:
-            self.root.after_cancel(self.auto_scroll_id)
+            try:
+                self.root.after_cancel(self.auto_scroll_id)
+            except Exception:
+                pass
             self.auto_scroll_id = None
     
     def _auto_scroll_during_drag(self, event):
         """Auto-scroll the canvas when dragging near top or bottom edges"""
-        # Get mouse position relative to canvas
-        canvas_y = event.y_root - self.file_list_canvas.winfo_rooty()
-        canvas_height = self.file_list_canvas.winfo_height()
+        # Exit immediately if dragging stopped
+        if not self.is_dragging:
+            self.auto_scroll_id = None
+            return
+        
+        try:
+            # Get mouse position relative to canvas
+            canvas_y = event.y_root - self.file_list_canvas.winfo_rooty()
+            canvas_height = self.file_list_canvas.winfo_height()
+        except Exception:
+            # Event might be invalid, stop scrolling
+            self.auto_scroll_id = None
+            return
         
         scroll_zone = 30  # Pixels from edge to trigger scrolling
         scroll_speed = 1  # Lines to scroll per update
         
         # Check if near top or bottom
-        if canvas_y < scroll_zone:
+        if canvas_y < scroll_zone and self.is_dragging:
             # Near top - scroll up
             self.file_list_canvas.yview_scroll(-1, "units")
-            # Schedule next scroll
-            if self.auto_scroll_id:
-                self.root.after_cancel(self.auto_scroll_id)
+            # Schedule next scroll only if still dragging
+            if self.auto_scroll_id and self.is_dragging:
+                try:
+                    self.root.after_cancel(self.auto_scroll_id)
+                except Exception:
+                    pass
             self.auto_scroll_id = self.root.after(50, lambda: self._auto_scroll_during_drag(event) if self.is_dragging else None)
-        elif canvas_y > canvas_height - scroll_zone:
+        elif canvas_y > canvas_height - scroll_zone and self.is_dragging:
             # Near bottom - scroll down
             self.file_list_canvas.yview_scroll(1, "units")
-            # Schedule next scroll
-            if self.auto_scroll_id:
-                self.root.after_cancel(self.auto_scroll_id)
+            # Schedule next scroll only if still dragging
+            if self.auto_scroll_id and self.is_dragging:
+                try:
+                    self.root.after_cancel(self.auto_scroll_id)
+                except Exception:
+                    pass
             self.auto_scroll_id = self.root.after(50, lambda: self._auto_scroll_during_drag(event) if self.is_dragging else None)
         else:
             # In middle zone - cancel any pending scroll
             if self.auto_scroll_id:
-                self.root.after_cancel(self.auto_scroll_id)
+                try:
+                    self.root.after_cancel(self.auto_scroll_id)
+                except Exception:
+                    pass
                 self.auto_scroll_id = None
     
     def _on_preview_toggle(self):
@@ -721,6 +907,7 @@ class PDFCombinerApp:
                 self.preview_after_id = None
             self.pending_preview_index = None
             self.hide_preview()
+        self._save_settings()
     
     def on_row_hover(self, event, index: int):
         """Handle row hover to show preview"""
@@ -795,8 +982,11 @@ class PDFCombinerApp:
                 row.config(bg=bg_color)
                 # Update child labels
                 for child in row.winfo_children():
-                    if isinstance(child, tk.Label):
-                        child.config(bg=bg_color)
+                    if isinstance(child, (tk.Label, tk.Entry)):
+                        try:
+                            child.config(bg=bg_color)
+                        except tk.TclError:
+                            pass
                 self.row_visual_state[i] = bg_color
         
         # Keep focus stable on canvas to prevent focus-change flicker
@@ -837,6 +1027,12 @@ class PDFCombinerApp:
             self.sort_name_button.config(state=tk.DISABLED)
             self.sort_size_button.config(state=tk.DISABLED)
             self.sort_date_button.config(state=tk.DISABLED)
+        
+        # Enable/disable Clear All button (needs at least 1 file)
+        if len(self.pdf_files) >= 1:
+            self.clear_button.config(state=tk.NORMAL)
+        else:
+            self.clear_button.config(state=tk.DISABLED)
     
     def show_preview(self, index: int, x_root: int, y_root: int, file_path: str):
         """Show a preview popup with PDF thumbnail"""
@@ -993,6 +1189,7 @@ class PDFCombinerApp:
         if directory:
             self.output_directory = directory
             self.location_label.config(text=self.output_directory)
+            self._save_settings()
     
     def combine_pdfs(self):
         """Combine selected PDF files"""
@@ -1033,11 +1230,27 @@ class PDFCombinerApp:
         try:
             for file_entry in files_to_combine:
                 file_path = self.get_file_path(file_entry)
+                page_range = self.get_page_range(file_entry)
                 
                 # Count pages
                 with open(file_path, 'rb') as f:
                     pdf_reader = PyPDF2.PdfReader(f)
-                    total_pages += len(pdf_reader.pages)
+                    total_file_pages = len(pdf_reader.pages)
+                    try:
+                        page_indices = self._parse_page_range(page_range, total_file_pages)
+                        total_pages += len(page_indices)
+                    except ValueError as e:
+                        error_msg = (
+                            f"{Path(file_path).name} (Total pages: {total_file_pages})\n\n"
+                            f"Error: {e}\n\n"
+                            f"Valid formats:\n"
+                            f"  • All pages: 'All' or leave blank\n"
+                            f"  • Single page: '5'\n"
+                            f"  • Range: '1-10'\n"
+                            f"  • Multiple ranges: '1-3,5,7-9'"
+                        )
+                        messagebox.showerror("Invalid Page Range", error_msg)
+                        return
                 
                 # Get file size
                 total_size_bytes += os.path.getsize(file_path)
@@ -1240,6 +1453,9 @@ class PDFCombinerApp:
                 # Create PDF writer object
                 pdf_writer = PyPDF2.PdfWriter()
                 
+                # Track current page number for bookmarks
+                current_page_num = 0
+                
                 # Add all PDFs to writer in the selected order with rotation applied
                 for i, file_entry in enumerate(files_to_combine):
                     # Check if cancelled
@@ -1252,6 +1468,7 @@ class PDFCombinerApp:
                     
                     file_path = self.get_file_path(file_entry)
                     rotation = self.get_rotation(file_entry)
+                    page_range = self.get_page_range(file_entry)
                     
                     # Update progress
                     self.root.after(0, lambda idx=i, f=file_path: (
@@ -1263,11 +1480,46 @@ class PDFCombinerApp:
                     # Read the PDF and add pages with rotation
                     with open(file_path, 'rb') as pdf_file:
                         pdf_reader = PyPDF2.PdfReader(pdf_file)
-                        for page in pdf_reader.pages:
+                        total_file_pages = len(pdf_reader.pages)
+                        try:
+                            page_indices = self._parse_page_range(page_range, total_file_pages)
+                        except ValueError as e:
+                            error_msg = (
+                                f"{Path(file_path).name} (Total pages: {total_file_pages})\n\n"
+                                f"Error: {e}\n\n"
+                                f"Valid formats:\n"
+                                f"  • All pages: 'All' or leave blank\n"
+                                f"  • Single page: '5'\n"
+                                f"  • Range: '1-10'\n"
+                                f"  • Multiple ranges: '1-3,5,7-9'"
+                            )
+                            self.root.after(0, lambda: (
+                                progress_window.destroy(),
+                                messagebox.showerror("Invalid Page Range", error_msg)
+                            ))
+                            return
+                        
+                        # Add bookmark at the start of this file's pages (optional)
+                        parent_bookmark = None
+                        if self.add_filename_bookmarks.get() and len(page_indices) > 0:
+                            bookmark_title = Path(file_path).stem  # Filename without extension
+                            parent_bookmark = pdf_writer.add_outline_item(bookmark_title, current_page_num)
+                        
+                        # Always copy original bookmarks from source PDF (nested under file bookmark if it exists)
+                        try:
+                            # Use parent_bookmark if we added one, otherwise None for root level
+                            self._copy_bookmarks(pdf_reader, pdf_writer, parent_bookmark, current_page_num, page_indices)
+                        except Exception:
+                            # If bookmark copying fails, continue without them
+                            pass
+                        
+                        for page_index in page_indices:
+                            page = pdf_reader.pages[page_index]
                             # Apply rotation if specified
                             if rotation != 0:
                                 page.rotate(rotation)
                             pdf_writer.add_page(page)
+                            current_page_num += 1
                 
                 # Check if cancelled before writing
                 if cancel_flag['cancelled']:
@@ -1299,14 +1551,16 @@ class PDFCombinerApp:
                 ))
                 
             except FileNotFoundError as e:
+                error_msg = f"File not found: {e}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
-                    messagebox.showerror("Error", f"File not found: {e}")
+                    messagebox.showerror("Error", error_msg)
                 ))
             except Exception as e:
+                error_msg = f"An error occurred: {str(e)}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
-                    messagebox.showerror("Error", f"An error occurred: {str(e)}")
+                    messagebox.showerror("Error", error_msg)
                 ))
         
         # Start the thread
@@ -1323,6 +1577,142 @@ class PDFCombinerApp:
                     webbrowser.open_new(output_file)
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open file: {e}")
+
+    def _parse_page_range(self, range_text: str, total_pages: int) -> List[int]:
+        """Parse page range string into a list of zero-based page indices."""
+        text = (range_text or "").strip().lower()
+        if text == "" or text == "all":
+            return list(range(total_pages))
+        
+        indices = set()
+        parts = [part.strip() for part in text.split(",") if part.strip()]
+        for part in parts:
+            if "-" in part:
+                start_str, end_str = [p.strip() for p in part.split("-", 1)]
+                if not start_str or not end_str:
+                    raise ValueError("Invalid range format")
+                try:
+                    start = int(start_str)
+                    end = int(end_str)
+                except ValueError:
+                    raise ValueError("Page numbers must be integers")
+                if start < 1 or end < 1 or start > end:
+                    raise ValueError("Invalid range order")
+                if end > total_pages:
+                    raise ValueError(f"Page range exceeds total pages, file has {total_pages} pages")
+                for page_num in range(start, end + 1):
+                    indices.add(page_num - 1)
+            else:
+                try:
+                    page_num = int(part)
+                except ValueError:
+                    raise ValueError("Page numbers must be integers")
+                if page_num < 1 or page_num > total_pages:
+                    raise ValueError(f"Page number out of range, file has {total_pages} pages")
+                indices.add(page_num - 1)
+        
+        if not indices:
+            raise ValueError("No valid pages selected")
+        
+        return sorted(indices)
+
+    def _copy_bookmarks(self, reader, writer, parent, page_offset, page_indices):
+        """Recursively copy bookmarks from source PDF to combined PDF, adjusting page numbers."""
+        try:
+            outlines = reader.outline
+            if not outlines:
+                return
+            
+            self._copy_outline_items(reader, writer, outlines, parent, page_offset, page_indices)
+        except Exception:
+            # If reading outlines fails, silently continue without them
+            pass
+    
+    def _copy_outline_items(self, reader, writer, items, parent, page_offset, page_indices):
+        """Process outline items recursively."""
+        for item in items:
+            if isinstance(item, list):
+                # Nested list of items
+                self._copy_outline_items(reader, writer, item, parent, page_offset, page_indices)
+            else:
+                # Individual bookmark item
+                try:
+                    # Get the page number this bookmark points to
+                    if hasattr(item, 'page'):
+                        page_obj = item.page
+                        if page_obj is not None:
+                            # Get the index of this page in the source PDF
+                            try:
+                                source_page_num = reader.pages.index(page_obj)
+                            except (ValueError, AttributeError):
+                                continue
+                            
+                            # Check if this page is included in our selected range
+                            if source_page_num not in page_indices:
+                                continue
+                            
+                            # Calculate position in our selected pages
+                            position_in_selection = page_indices.index(source_page_num)
+                            new_page_num = page_offset + position_in_selection
+                            
+                            # Get bookmark title
+                            title = item.get('/Title', 'Untitled')
+                            
+                            # Add bookmark as child of parent
+                            new_bookmark = writer.add_outline_item(title, new_page_num, parent=parent)
+                            
+                            # Recursively process children if any
+                            if hasattr(item, 'node') and hasattr(item.node, 'children'):
+                                children = item.node.children
+                                if children:
+                                    self._copy_outline_items(reader, writer, children, new_bookmark, page_offset, page_indices)
+                except Exception:
+                    # Skip bookmarks that fail to process
+                    continue
+
+    def _validate_page_range(self, index: int, var: tk.StringVar, entry_widget: tk.Entry):
+        """Validate a page range after entry and revert on error."""
+        if not (0 <= index < len(self.pdf_files)):
+            return
+
+        file_path = self.get_file_path(self.pdf_files[index])
+        text = var.get().strip()
+        normalized = text if text else "All"
+
+        try:
+            with open(file_path, 'rb') as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                total_pages = len(pdf_reader.pages)
+                self._parse_page_range(normalized, total_pages)
+        except Exception as e:
+            last_valid = self.page_range_last_valid.get(index, "All")
+            var.set(last_valid)
+            entry_widget.focus_set()
+            entry_widget.selection_range(0, tk.END)
+            
+            # Get total pages for error message
+            try:
+                with open(file_path, 'rb') as pdf_file:
+                    pdf_reader = PyPDF2.PdfReader(pdf_file)
+                    total_pages = len(pdf_reader.pages)
+                    pages_info = f"(Total pages: {total_pages})"
+            except:
+                pages_info = ""
+            
+            error_msg = (
+                f"{Path(file_path).name} {pages_info}\n\n"
+                f"Error: {e}\n\n"
+                f"Valid formats:\n"
+                f"  • All pages: 'All' or leave blank\n"
+                f"  • Single page: '5'\n"
+                f"  • Range: '1-10'\n"
+                f"  • Multiple ranges: '1-3,5,7-9'"
+            )
+            messagebox.showerror("Invalid Page Range", error_msg)
+            return
+
+        self.page_range_last_valid[index] = normalized
+        self.set_page_range(index, normalized)
 
     def open_output_file(self):
         """Open the last combined PDF using the system default application"""
