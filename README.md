@@ -2,7 +2,7 @@
 
 A program to combine two or more PDF files into one PDF with lots of options, including page selection, rotation, adding bookmarks and more.
 
-<p align="center">
+<p align="left">
   <img src="images/CombinePDFs.png" width="400">
 </p>
 
