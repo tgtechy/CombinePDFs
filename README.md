@@ -1,10 +1,16 @@
-# CombinePDFs
+# Combine PDFs
 
-A program to combine two or more PDF files into one PDF.
+A program to combine two or more PDF files into one PDF with lots of options, including page selection, rotation, adding bookmarks and more.
+
+# Windows Installation
+Simply click the 'Releases' link and select the CombinePDFs.exe file to download it.
+You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown to ensure the exe has not been tampered with.
+
+If you would like to build the exe from scratch ...
 
 ## Build Instructions
 
-This project is a Tkinter app to combine PDF files with drag-and-drop reordering.
+This project is a Python/Tkinter app to combine PDF files with drag-and-drop reordering and many other options.
 
 ### Build a Windows executable using PyInstaller
 
@@ -41,5 +47,3 @@ pyinstaller --noconfirm CombinePDFs.spec
 
 **Notes**
 - The generated exe will be in the `dist` folder.
-- Large dependencies (PyMuPDF, Pillow) can increase exe size.
-- Test the exe on a clean Windows machine for missing DLLs.
