@@ -1,6 +1,6 @@
-# Combine PDFs
+# Combine Several PDF Documents into a Single File
 
-A program to combine two or more PDF files into one PDF with lots of options, including page selection, rotation, adding bookmarks and more.
+A free program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks and more.
 
 <p align="left">
   <img src="images/CombinePDFs.png" width="400">
