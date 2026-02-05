@@ -284,9 +284,18 @@ class PDFCombinerApp:
             title="Select PDF files",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
         )
+        
+        added_count = 0
+        duplicate_count = 0
+        duplicates = []
+        
         for file in files:
             if file not in self.pdf_files:
                 self.pdf_files.append(file)
+                added_count += 1
+            else:
+                duplicate_count += 1
+                duplicates.append(Path(file).name)
 
         # Refresh list display with updated numbering
         try:
@@ -299,6 +308,14 @@ class PDFCombinerApp:
             self.refresh_listbox()
 
         self.update_count()
+        
+        # Show warning if duplicates were attempted
+        if duplicate_count > 0:
+            duplicates_text = "\n".join(f"  • {dup}" for dup in duplicates)
+            messagebox.showwarning(
+                "Duplicate Files",
+                f"The following file(s) are already in the list and were not added:\n\n{duplicates_text}"
+            )
     
     def remove_file(self):
         """Remove selected file(s) from list"""
@@ -668,8 +685,123 @@ class PDFCombinerApp:
             # Sort by filename alphabetically
             files_to_combine.sort(key=lambda x: Path(x).name.lower())
         
-        # Create and show progress dialog
-        self.show_progress_dialog(output_file, files_to_combine)
+        # Show summary before combining
+        self.show_combine_summary(output_file, files_to_combine)
+    
+    def show_combine_summary(self, output_file, files_to_combine):
+        """Show a summary of PDFs to combine before proceeding"""
+        # Calculate total pages and file size
+        total_pages = 0
+        total_size_bytes = 0
+        
+        try:
+            for pdf_file in files_to_combine:
+                # Count pages
+                with open(pdf_file, 'rb') as f:
+                    pdf_reader = PyPDF2.PdfReader(f)
+                    total_pages += len(pdf_reader.pages)
+                
+                # Get file size
+                total_size_bytes += os.path.getsize(pdf_file)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not read PDF information: {e}")
+            return
+        
+        # Format file size
+        if total_size_bytes < 1024:
+            size_str = f"{total_size_bytes} B"
+        elif total_size_bytes < 1024 * 1024:
+            size_str = f"{total_size_bytes / 1024:.1f} KB"
+        else:
+            size_str = f"{total_size_bytes / (1024 * 1024):.1f} MB"
+        
+        # Create summary window
+        summary_window = tk.Toplevel(self.root)
+        summary_window.title("Combine Summary")
+        summary_window.geometry("400x320")
+        summary_window.resizable(False, False)
+        summary_window.transient(self.root)
+        summary_window.grab_set()
+        
+        # Center the summary window
+        summary_window.update_idletasks()
+        x = (summary_window.winfo_screenwidth() // 2) - (400 // 2)
+        y = (summary_window.winfo_screenheight() // 2) - (320 // 2)
+        summary_window.geometry(f"400x320+{x}+{y}")
+        
+        # Title
+        title_label = tk.Label(
+            summary_window,
+            text="Combine Summary",
+            font=("Arial", 12, "bold"),
+            pady=10
+        )
+        title_label.pack()
+        
+        # Info frame
+        info_frame = tk.Frame(summary_window)
+        info_frame.pack(pady=10, padx=20, fill=tk.X)
+        
+        # Files count
+        files_label = tk.Label(
+            info_frame,
+            text=f"Files to combine:  {len(files_to_combine)} files",
+            font=("Arial", 10, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        files_label.pack(fill=tk.X, pady=5)
+        
+        # Total pages
+        pages_label = tk.Label(
+            info_frame,
+            text=f"Total pages:  {total_pages} pages",
+            font=("Arial", 10, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        pages_label.pack(fill=tk.X, pady=5)
+        
+        # Total size
+        size_label = tk.Label(
+            info_frame,
+            text=f"Total size:  {size_str}",
+            font=("Arial", 10, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        size_label.pack(fill=tk.X, pady=5)
+        
+        # Button frame
+        button_frame = tk.Frame(summary_window)
+        button_frame.pack(pady=10)
+        
+        # Proceed button
+        proceed_button = tk.Button(
+            button_frame,
+            text="Proceed",
+            command=lambda: (
+                summary_window.destroy(),
+                self.show_progress_dialog(output_file, files_to_combine)
+            ),
+            width=12,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        proceed_button.grid(row=0, column=0, padx=5)
+        
+        # Cancel button
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=summary_window.destroy,
+            width=12,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        cancel_button.grid(row=0, column=1, padx=5)
     
     def show_progress_dialog(self, output_file, files_to_combine):
         """Show a progress dialog while combining PDFs"""
