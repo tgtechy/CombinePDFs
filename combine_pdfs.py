@@ -13,19 +13,20 @@ import io
 import fitz  # PyMuPDF
 import threading
 
+__VERSION__ = "1.1.0"
 
 class PDFCombinerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("PDF Combiner")
         
-        # Center window on screen
+        # Center window horizontally and align to top
         window_width = 700
         window_height = 640
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
-        center_y = int((screen_height - window_height) / 2)
+        center_y = 5
         self.root.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         self.root.resizable(False, False)
         
@@ -216,7 +217,7 @@ class PDFCombinerApp:
         # Drag and drop instruction
         drag_drop_note = tk.Label(
             root,
-            text="Single click to select. Ctrl-Click to select multiple. Drag to change order, Hover to see the first page, Double click to open.",
+            text="After adding files, single click to select. Ctrl-Click to select multiple. Drag to change order, Hover to see first page, Double click to open.",
             font=("Arial", 8),
             fg="#666666"
         )
@@ -392,6 +393,16 @@ class PDFCombinerApp:
             "<Button-1>",
             lambda e: webbrowser.open_new("https://github.com/tgtechy/CombinePDFs")
         )
+        
+        # Version label aligned to the left
+        version_label = tk.Label(
+            bottom_frame,
+            text=f"v{__VERSION__}",
+            font=("Arial", 8),
+            fg="#606060",
+            bg=bottom_frame.cget("bg")
+        )
+        version_label.place(relx=0.0, rely=0.5, anchor="w", x=5)
     
     # Helper methods for file dict access
     def get_file_path(self, file_entry: dict) -> str:
@@ -871,7 +882,16 @@ class PDFCombinerApp:
         
         # Check if near top or bottom
         if canvas_y < scroll_zone and self.is_dragging:
-            # Near top - scroll up
+            # Near top - scroll up (only if not already at top)
+            first, last = self.file_list_canvas.yview()
+            if first <= 0:
+                if self.auto_scroll_id:
+                    try:
+                        self.root.after_cancel(self.auto_scroll_id)
+                    except Exception:
+                        pass
+                    self.auto_scroll_id = None
+                return
             self.file_list_canvas.yview_scroll(-1, "units")
             # Schedule next scroll only if still dragging
             if self.auto_scroll_id and self.is_dragging:
@@ -881,7 +901,16 @@ class PDFCombinerApp:
                     pass
             self.auto_scroll_id = self.root.after(50, lambda: self._auto_scroll_during_drag(event) if self.is_dragging else None)
         elif canvas_y > canvas_height - scroll_zone and self.is_dragging:
-            # Near bottom - scroll down
+            # Near bottom - scroll down (only if not already at bottom)
+            first, last = self.file_list_canvas.yview()
+            if last >= 1:
+                if self.auto_scroll_id:
+                    try:
+                        self.root.after_cancel(self.auto_scroll_id)
+                    except Exception:
+                        pass
+                    self.auto_scroll_id = None
+                return
             self.file_list_canvas.yview_scroll(1, "units")
             # Schedule next scroll only if still dragging
             if self.auto_scroll_id and self.is_dragging:
@@ -1269,7 +1298,7 @@ class PDFCombinerApp:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("400x260")
+        summary_window.geometry("400x220")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
@@ -1277,8 +1306,8 @@ class PDFCombinerApp:
         # Center the summary window
         summary_window.update_idletasks()
         x = (summary_window.winfo_screenwidth() // 2) - (400 // 2)
-        y = (summary_window.winfo_screenheight() // 2) - (260 // 2)
-        summary_window.geometry(f"400x260+{x}+{y}")
+        y = (summary_window.winfo_screenheight() // 2) - (220 // 2)
+        summary_window.geometry(f"400x220+{x}+{y}")
         
         # Title
         title_label = tk.Label(
