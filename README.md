@@ -7,7 +7,7 @@ A free Windows 10/11 program to combine two or more PDF files into one PDF with 
 </p>
 
 # Windows Installation
-Simply click the 'Releases' link and select the CombinePDFs.exe file to download it.
+Simply click the 'Releases' link on the right side of the page and select the CombinePDFs.exe file to download it.
 You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown to ensure the exe has not been tampered with.
 
 If you want to make a donation to support further development, [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
