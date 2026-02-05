@@ -28,14 +28,14 @@ class PDFCombinerApp:
 
         # Use existing PNG icon if available, otherwise fallback to .ico
         try:
-            png_path = resource_path("combine_pdfs.png")
+            png_path = resource_path("pdfcombinericon.png")
             icon_image = tk.PhotoImage(file=png_path)
             self.root.iconphoto(True, icon_image)
             # keep a reference so it isn't garbage-collected
             self._icon_image = icon_image
         except Exception:
             try:
-                ico_path = resource_path("combine_pdfs.ico")
+                ico_path = resource_path("pdfcombinericon.ico")
                 self.root.iconbitmap(ico_path)
             except Exception:
                 pass

@@ -9,8 +9,8 @@ pyinstaller --noconfirm CombinePDFs.spec
 
 REM Post-build: use rcedit to embed the icon into the EXE
 if exist dist\CombinePDFs.exe (
-    if exist combine_pdfs.ico (
-        rcedit --set-icon combine_pdfs.ico dist\CombinePDFs.exe
+    if exist pdfcombinericon.ico (
+        rcedit --set-icon pdfcombinericon.ico dist\CombinePDFs.exe
     )
 )
 
