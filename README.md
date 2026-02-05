@@ -1,10 +1,13 @@
 # CombinePDFs
 
-A program to combine two or more PDF files into one PDF.
+A program to combine two or more PDF files into one PDF with lots of options, including page selection, rotation, adding bookmarks and more.
+
+# Windows Installation
+Simply click the 'Releases' link and select 
 
 ## Build Instructions
 
-This project is a Tkinter app to combine PDF files with drag-and-drop reordering.
+This project is a Python/Tkinter app to combine PDF files with drag-and-drop reordering.
 
 ### Build a Windows executable using PyInstaller
 
