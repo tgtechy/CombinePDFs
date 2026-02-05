@@ -2,6 +2,11 @@
 REM Build CombinePDFs into a single Windows executable using PyInstaller
 REM Run this from the project root (double-click or run from PowerShell/CMD)
 
+REM Activate virtual environment if it exists
+if exist venv\Scripts\activate.bat (
+    call venv\Scripts\activate.bat
+)
+
 python -m pip install --upgrade pyinstaller
 
 REM Build using the spec file which includes icon and data configurations.
