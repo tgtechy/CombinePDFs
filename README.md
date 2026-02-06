@@ -83,6 +83,35 @@ STATUS BAR
 • The bottom status bar shows the full path of the file
   you're currently hovering over or have selected
 
+PRACTICAL LIMITS & PERFORMANCE
+Memory Considerations:
+• Each PDF is loaded entirely into memory, so RAM can be a bottleneck
+• Try to keep individual PDF sizes under 1 GB for reliable performance
+
+Number of PDFs to Combine:
+• There is no hard-coded limit, but more than 100 files can be combined depending on their sizes
+• The app processes files sequentially, so it's mainly constrained by:
+  - Total available RAM (all pages accumulate in a PdfWriter object before writing to disk)
+  - Combined size of all source PDFs
+
+Combined Output Size:
+• Can theoretically be as large as your disk space and available RAM
+• However, if you're generating a combined PDF with 1000+ pages and/or multiple large files, you may experience:
+  - Slow progress bar updates
+  - Memory strain during the compression phase (if compression is enabled)
+  - Extended write times
+
+Real-World Guidelines:
+• Source PDFs: Keep each file well under 1 GB for smooth operation
+• Number of files: 2-50 files to combine is very reliable; 50-100+ will slow down based on sizes
+• RAM recommendation: 4 GB minimum; 8 GB+ for larger operations
+
+Key Factors Affecting Performance:
+• The PDF engine (PyPDF2) efficiency handles several GB sized files but slows with size
+• Compression consumes RAM and processing time
+• Page scaling/transformations add memory overhead per page
+• Available system RAM limits the aggregate size you can process
+
 If you would like to build the exe from scratch rather than download the .exe file in the releases section ...
 
 ## Build Instructions
