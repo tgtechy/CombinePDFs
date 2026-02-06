@@ -1,10 +1,22 @@
-# Combine PDFs
+# Combine Several PDF Documents into a Single File
 
-A program to combine two or more PDF files into one PDF with lots of options, including page selection, rotation, adding bookmarks and more.
+A free Windows 10/11 program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks and more.
+
+<p align="left">
+  <img src="images/CombinePDFs.png" width="400">
+</p>
 
 # Windows Installation
-Simply click the 'Releases' link and select the CombinePDFs.exe file to download it.
+Simply click the 'Releases' link on the right side of the page and select the CombinePDFs.exe file to download it.
 You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown to ensure the exe has not been tampered with.
+
+To bypass the Windows warning if it appears setup, click 'More info', then 'Run anyway' as shown below (pics are from Win11, Win10 may be a little different):
+
+<img src="images/windows-protected-your-pc-click1.png?v=3" width="300">
+
+<img src="images/windows-protected-your-pc-click2.png?v=3" width="300">
+
+If you want to make a donation to support further development, [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
 
 If you would like to build the exe from scratch ...
 
