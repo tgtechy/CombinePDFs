@@ -122,6 +122,7 @@ class PDFCombinerApp:
         self.watermark_text = tk.StringVar(value="")  # Watermark text
         self.watermark_opacity = tk.DoubleVar(value=0.3)  # Watermark opacity (0.1-0.9)
         self.watermark_font_size = tk.IntVar(value=50)  # Watermark font size
+        self.watermark_rotation = tk.IntVar(value=45)  # Watermark rotation (0-360 degrees)
         self.delete_blank_pages = tk.BooleanVar(value=False)  # Remove blank pages
         
         # Store last used metadata values
@@ -241,7 +242,7 @@ class PDFCombinerApp:
         
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
-        ToolTip(rot_hdr, "Rotate all pages in this PDF.\nOptions: 0°, 90°, 180°, 270°")
+        ToolTip(rot_hdr, "Rotate all pages in this PDF.\nOptions: 0°, 90°, 180°, 270°\nclockwise")
         
         rev_hdr = tk.Label(header_frame, text="Rev", font=hdr_font, bg="#E0E0E0", width=4, anchor='c')
         rev_hdr.pack(side=tk.LEFT, padx=2)
@@ -395,6 +396,7 @@ class PDFCombinerApp:
         
         filename_entry = tk.Entry(filename_frame, textvariable=self.output_filename, font=("Arial", 9), width=30)
         filename_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        filename_entry.bind("<FocusOut>", lambda e: self._validate_filename_on_focus_out())
         
         #tk.Label(filename_frame, text=".pdf", font=("Arial", 9)).pack(side=tk.LEFT)
         
@@ -455,6 +457,7 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         bookmark_checkbox.pack(side=tk.LEFT, anchor="w")
+        ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF. Existing bookmarks will be retained under\nthe filename bookmark.")
 
         blank_pages_checkbox = tk.Checkbutton(
             checkbox_row,
@@ -473,10 +476,11 @@ class PDFCombinerApp:
             page_options_row,
             text="Scale all pages to uniform size",
             variable=self.enable_page_scaling,
-            command=self._toggle_page_scaling,
+            command=self._save_settings,
             font=("Arial", 9)
         )
         scale_checkbox.pack(side=tk.LEFT, anchor="w")
+        ToolTip(scale_checkbox, "This option can produce unpredictable results when\ninput files have widely varying page sizes\nand orientations.")
         
         blank_detect_checkbox = tk.Checkbutton(
             page_options_row,
@@ -594,6 +598,21 @@ class PDFCombinerApp:
             command=lambda e: self._save_settings()
         )
         self.fontsize_scale.pack(side=tk.LEFT, padx=(5, 0))
+        
+        tk.Label(watermark_sliders_row, text="Rotation:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT, padx=(10, 0))
+        self.rotation_scale = tk.Scale(
+            watermark_sliders_row,
+            from_=0,
+            to=360,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.watermark_rotation,
+            showvalue=True,
+            font=("Arial", 8),
+            length=120,
+            command=lambda e: self._save_settings()
+        )
+        self.rotation_scale.pack(side=tk.LEFT, padx=(5, 0))
         
         # Initialize watermark field states
         self._toggle_watermark_fields()
@@ -803,6 +822,8 @@ class PDFCombinerApp:
                     self.watermark_opacity.set(settings['watermark_opacity'])
                 if 'watermark_font_size' in settings:
                     self.watermark_font_size.set(settings['watermark_font_size'])
+                if 'watermark_rotation' in settings:
+                    self.watermark_rotation.set(settings['watermark_rotation'])
                 if 'delete_blank_pages' in settings:
                     self.delete_blank_pages.set(settings['delete_blank_pages'])
         except Exception:
@@ -833,6 +854,7 @@ class PDFCombinerApp:
                 'watermark_text': self.watermark_text.get(),
                 'watermark_opacity': self.watermark_opacity.get(),
                 'watermark_font_size': self.watermark_font_size.get(),
+                'watermark_rotation': self.watermark_rotation.get(),
                 'delete_blank_pages': self.delete_blank_pages.get()
             }
             with open(self.config_file, 'w') as f:
@@ -898,20 +920,23 @@ class PDFCombinerApp:
             var.set("0")
             self.set_rotation(index, 0)
     
-    def _toggle_page_scaling(self):
-        """Handle page scaling checkbox toggle with warning"""
-        if self.enable_page_scaling.get():
-            # Show warning when enabling
-            result = messagebox.askyesno(
-                "Page Scaling Warning",
-                "This option can produce unexpected results when the source PDFs have widely varying page sizes and rotations.\n\nProceed?",
-                icon='warning'
-            )
-            if not result:
-                # User clicked No, uncheck the box
-                self.enable_page_scaling.set(False)
+
+    def _validate_filename_on_focus_out(self):
+        """Validate filename when the input box loses focus"""
+        filename = self.output_filename.get().strip()
+        if not filename:
+            # Empty is okay, don't show error on blur
+            return
         
-        self._save_settings()
+        is_valid, error_message, corrected_filename = self._validate_output_filename(filename)
+        if not is_valid:
+            # For invalid characters, auto-correct and notify
+            if "invalid characters" in error_message.lower():
+                messagebox.showwarning("Filename Correction", error_message)
+                self.output_filename.set(corrected_filename)
+            else:
+                # For other issues, just show the error
+                messagebox.showerror("Invalid Filename", error_message)
     
     def _toggle_watermark_fields(self):
         """Enable or disable watermark entry fields and sliders based on checkbox state"""
@@ -919,6 +944,7 @@ class PDFCombinerApp:
         self.watermark_text_entry.config(state=state)
         self.opacity_scale.config(state=state)
         self.fontsize_scale.config(state=state)
+        self.rotation_scale.config(state=state)
         
         self._save_settings()
     
@@ -1736,13 +1762,27 @@ FILE PROPERTIES
   - Single page: "5" (without the quotes)
   - Range: "1-10"    (without the quotes)
   - Multiple ranges: "1-3,5,7-9" (without the quotes)
+• Rev: Check to reverse the page order for that file
 
 OUTPUT SETTINGS
 • Enter the desired filename for the combined PDF
 • Click "Browse" to choose where to save the combined PDF
 • Check "Add filename bookmarks" to create PDF bookmarks
   from each source file's name in the combined PDF
-• Existing bookmarks in files will be preserved
+  - Existing bookmarks in files will be preserved under the filename
+• Check "Insert breaker pages" to add a separator page before each
+  file showing which file follows
+• Check "Scale all pages to uniform size" to make all pages the same
+  size (may produce unpredictable results with varying page sizes)
+• Check "Ignore blank pages" to skip blank pages when combining
+• Select Compression/Quality level to reduce file size (higher
+  compression = smaller file but lower quality)
+
+METADATA & WATERMARK
+• Check "Add PDF metadata" to include Title, Author, Subject,
+  and Keywords in the combined PDF
+• Check "Add watermark to pages" to overlay text on all pages
+  - Set text, opacity, font size, and rotation angle
 
 COMBINING PDFs
 • At least 2 files are required to combine
@@ -1824,6 +1864,47 @@ STATUS BAR
             self.location_label.config(text=self.output_directory)
             self._save_settings()
     
+    def _validate_output_filename(self, filename: str) -> tuple[bool, str, str]:
+        """Validate output filename and return (is_valid, error_message, corrected_filename)"""
+        import re
+        
+        # Store original for comparison
+        original_filename = filename
+        
+        # Remove .pdf extension if present for validation
+        has_pdf_ext = filename.lower().endswith('.pdf')
+        if has_pdf_ext:
+            base_filename = filename[:-4]
+        else:
+            base_filename = filename
+        
+        # Check if filename is empty
+        if not base_filename.strip():
+            return False, "Please enter a filename (cannot be empty or just whitespace).", original_filename
+        
+        # Check for invalid characters and replace them with underscores
+        invalid_chars_pattern = r'[<>:"|?*\\]'
+        corrected_base = re.sub(invalid_chars_pattern, '_', base_filename)
+        had_invalid_chars = corrected_base != base_filename
+        
+        if had_invalid_chars:
+            # Add back the .pdf extension if it was present
+            corrected_filename = corrected_base + ('.pdf' if has_pdf_ext else '')
+            return False, "Filename contains invalid characters: < > : \" | ? * \\\nThese will be replaced with underscores.", corrected_filename
+        
+        # Check filename length (Windows max is 255, minus .pdf extension)
+        if len(corrected_base) > 240:
+            return False, "Filename is too long (max 240 characters).", original_filename
+        
+        # Check for reserved Windows names
+        reserved_names = {'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5',
+                         'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5',
+                         'lpt6', 'lpt7', 'lpt8', 'lpt9'}
+        if corrected_base.lower() in reserved_names:
+            return False, f"'{corrected_base}' is a reserved filename. Please choose a different name.", original_filename
+        
+        return True, "", original_filename
+    
     def combine_pdfs(self):
         """Combine selected PDF files"""
         if len(self.pdf_files) < 2:
@@ -1832,9 +1913,18 @@ STATUS BAR
         
         # Validate filename
         filename = self.output_filename.get().strip()
-        if not filename:
-            messagebox.showerror("Error", "Please enter an output filename.")
-            return
+        
+        # Validate the filename
+        is_valid, error_message, corrected_filename = self._validate_output_filename(filename)
+        if not is_valid:
+            # For invalid characters, auto-correct and notify
+            if "invalid characters" in error_message.lower():
+                messagebox.showwarning("Filename Correction", error_message)
+                self.output_filename.set(corrected_filename)
+                filename = corrected_filename
+            else:
+                messagebox.showerror("Invalid Filename", error_message)
+                return
         
         # Ensure filename ends with .pdf
         if not filename.lower().endswith(".pdf"):
@@ -2182,8 +2272,11 @@ STATUS BAR
                         
                         # Insert first breaker page if enabled
                         if i == 0 and self.insert_blank_pages.get():
-                            breaker_width = pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612
-                            breaker_height = pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792
+                            breaker_width = float(pdf_reader.pages[0].mediabox.width) if len(pdf_reader.pages) > 0 else 612
+                            breaker_height = float(pdf_reader.pages[0].mediabox.height) if len(pdf_reader.pages) > 0 else 792
+                            # Swap dimensions if file has 90 or 270 degree rotation
+                            if rotation in [90, 270]:
+                                breaker_width, breaker_height = breaker_height, breaker_width
                             first_filename = Path(file_path).name
                             breaker_page = self._create_page_with_filename(first_filename, breaker_width, breaker_height)
                             pdf_writer.add_page(breaker_page)
@@ -2241,19 +2334,38 @@ STATUS BAR
                             
                             # Add watermark if enabled
                             if self.enable_watermark.get() and self.watermark_text.get().strip():
-                                self._add_watermark(page, self.watermark_text.get(), self.watermark_opacity.get(), self.watermark_font_size.get())
+                                self._add_watermark(page, self.watermark_text.get(), self.watermark_opacity.get(), self.watermark_font_size.get(), self.watermark_rotation.get())
                             
                             pdf_writer.add_page(page)
                             current_page_num += 1
                         
                         # Insert breaker page between files if enabled (but not after the last file)
                         if self.insert_blank_pages.get() and i < len(files_to_combine) - 1:
-                            blank_width = pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612
-                            blank_height = pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792
-                            # Get the next file's name
+                            # Get the next file's information
                             next_file_entry = files_to_combine[i + 1]
                             next_file_path = self.get_file_path(next_file_entry)
                             next_filename = Path(next_file_path).name
+                            next_rotation = self.get_rotation(next_file_entry)
+                            
+                            # Read next file to get its page dimensions
+                            try:
+                                with open(next_file_path, 'rb') as next_pdf_file:
+                                    next_pdf_reader = PyPDF2.PdfReader(next_pdf_file)
+                                    if len(next_pdf_reader.pages) > 0:
+                                        next_page = next_pdf_reader.pages[0]
+                                        blank_width = float(next_page.mediabox.width)
+                                        blank_height = float(next_page.mediabox.height)
+                                        # Swap dimensions if next file has 90 or 270 degree rotation
+                                        if next_rotation in [90, 270]:
+                                            blank_width, blank_height = blank_height, blank_width
+                                    else:
+                                        blank_width = 612
+                                        blank_height = 792
+                            except:
+                                # Fallback to default letter size if we can't read the next file
+                                blank_width = 612
+                                blank_height = 792
+                            
                             # Create blank page with filename text and add it
                             blank_page = self._create_page_with_filename(next_filename, blank_width, blank_height)
                             pdf_writer.add_page(blank_page)
@@ -2534,7 +2646,7 @@ STATUS BAR
             # If scaling fails, leave page as is
             pass
     
-    def _add_watermark(self, page, text: str, opacity: float, font_size: int = 50):
+    def _add_watermark(self, page, text: str, opacity: float, font_size: int = 50, rotation: int = 45):
         """Add text watermark to a PDF page."""
         try:
             from reportlab.pdfgen import canvas
@@ -2555,7 +2667,7 @@ STATUS BAR
             # Draw watermark diagonally
             c.saveState()
             c.translate(width / 2, height / 2)
-            c.rotate(45)
+            c.rotate(rotation)
             c.drawCentredString(0, 0, text)
             c.restoreState()
             c.save()
@@ -2583,6 +2695,10 @@ STATUS BAR
             from reportlab.pdfgen import canvas
             from io import BytesIO
             
+            # Ensure dimensions are float
+            width = float(width)
+            height = float(height)
+            
             # Create blank page with filename in the center
             packet = BytesIO()
             c = canvas.Canvas(packet, pagesize=(width, height))
@@ -2591,7 +2707,10 @@ STATUS BAR
             
             # Draw filename and "follows" text centered vertically
             vertical_center = height / 2
+            c.drawCentredString(width / 2, vertical_center + 40, "File")
+            c.setFont("Helvetica-Bold", 14)
             c.drawCentredString(width / 2, vertical_center + 15, filename)
+            c.setFont("Helvetica", 14)
             c.drawCentredString(width / 2, vertical_center - 15, "follows")
             c.save()
             
@@ -2600,15 +2719,21 @@ STATUS BAR
             
             # Read the page from memory
             page_pdf = PyPDF2.PdfReader(packet)
-            return page_pdf.pages[0]
+            if len(page_pdf.pages) > 0:
+                return page_pdf.pages[0]
+            else:
+                # If no pages were created, fall back to blank page
+                blank_page = PyPDF2.PdfWriter().add_blank_page(width=width, height=height)
+                return blank_page
             
         except ImportError:
             # reportlab not available, create blank page without text
-            blank_page = PyPDF2.PdfWriter().add_blank_page(width=width, height=height)
+            blank_page = PyPDF2.PdfWriter().add_blank_page(width=float(width), height=float(height))
             return blank_page
-        except Exception:
+        except Exception as e:
             # If page creation fails, return blank page
-            blank_page = PyPDF2.PdfWriter().add_blank_page(width=width, height=height)
+            # This is a fallback - the page will have text but if it fails, at least we get a blank page
+            blank_page = PyPDF2.PdfWriter().add_blank_page(width=float(width), height=float(height))
             return blank_page
     
     def _compress_page(self, page, compression_level: str):
