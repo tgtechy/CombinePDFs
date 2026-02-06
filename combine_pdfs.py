@@ -13,7 +13,7 @@ import io
 import fitz  # PyMuPDF
 import threading
 
-__VERSION__ = "1.1.0"
+__VERSION__ = "1.2.0"
 
 class PDFCombinerApp:
     def __init__(self, root):
@@ -22,7 +22,7 @@ class PDFCombinerApp:
         
         # Center window horizontally and align to top
         window_width = 700
-        window_height = 600
+        window_height = 610
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -96,7 +96,7 @@ class PDFCombinerApp:
         # Add files button
         add_button = tk.Button(
             add_button_frame,
-            text="Add PDFs to List...",
+            text="Add PDFs to Combine...",
             command=self.add_files,
             width=25,
             bg="#E0E0E0",
@@ -127,7 +127,7 @@ class PDFCombinerApp:
         header_frame = tk.Frame(list_frame, bg="#E0E0E0")
         header_frame.pack(anchor=tk.W, fill=tk.X)
 
-        hdr_font = ("Courier New", 9)
+        hdr_font = ("Droid Sans Mono", 9)
         # Numbering column header
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
         num_hdr.pack(side=tk.LEFT)
@@ -305,6 +305,7 @@ class PDFCombinerApp:
             location_frame,
             bd=0,
             relief=tk.FLAT,
+            bg="#FAFAFA",
             highlightbackground="#BBBBBB",
             highlightthickness=1,
             padx=6,
@@ -317,6 +318,7 @@ class PDFCombinerApp:
             text=self.output_directory,
             font=("Arial", 9),
             fg="#000",
+            bg="#FAFAFA",
             anchor="w"
         )
         self.location_label.pack(side=tk.LEFT)
@@ -336,6 +338,22 @@ class PDFCombinerApp:
         )
         bookmark_checkbox.pack()
         
+        # Status bar frame
+        status_frame = tk.Frame(root, bg="#E8E8E8", height=18)
+        status_frame.pack(pady=0, padx=0, fill=tk.X, side=tk.BOTTOM)
+        status_frame.pack_propagate(False)
+        
+        self.status_label = tk.Label(
+            status_frame,
+            text="",
+            font=("Arial", 8),
+            fg="#333333",
+            bg="#E8E8E8",
+            anchor="w",
+            padx=5
+        )
+        self.status_label.pack(fill=tk.X, side=tk.LEFT)
+        
         # Bottom button frame
         bottom_frame = tk.Frame(root, height=40)
         bottom_frame.pack(pady=5, padx=10, fill=tk.X)
@@ -354,12 +372,25 @@ class PDFCombinerApp:
             fg="black",
             font=("Arial", 11),
             height=1,
-            width=20,
+            width=13,
             state=tk.DISABLED  # Start disabled until at least 2 files added
         )
         self.combine_button.pack(side=tk.LEFT, padx=5)
         
         # (Removed: open-button replaced by a post-success dialog)
+        
+        # Help button
+        help_button = tk.Button(
+            center_frame,
+            text="Help",
+            command=self.show_help,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 11),
+            height=1,
+            width=13
+        )
+        help_button.pack(side=tk.LEFT, padx=5)
         
         # Quit button
         quit_button = tk.Button(
@@ -370,7 +401,7 @@ class PDFCombinerApp:
             fg="black",
             font=("Arial", 11),
             height=1,
-            width=20
+            width=13
         )
         quit_button.pack(side=tk.LEFT, padx=5)
         
@@ -502,9 +533,12 @@ class PDFCombinerApp:
             self.sort_key = None
             self.sort_reverse = False
             self.refresh_listbox()
-            self.update_sort_buttons()
+            self.update_header_labels()
         except Exception:
             self.refresh_listbox()
+
+        # Clear status bar
+        self.status_label.config(text="")
 
         self.update_count()
         
@@ -562,31 +596,34 @@ class PDFCombinerApp:
                     selected_indices.append(i)
             
             if not selected_indices:
-                messagebox.showwarning("Warning", "Please select a file to remove.")
+                messagebox.showwarning("Warning", "Please select a file to remove from the list.")
                 return
 
             # Confirm removal
             count = len(selected_indices)
             file_word = "file" if count == 1 else "files"
-            if not messagebox.askyesno("Confirm Removal", f"Remove {count} selected {file_word}?"):
+            if not messagebox.askyesno("Confirm Removal", f"Remove {count} selected {file_word} from the list?"):
                 return
 
             # Delete in reverse order to avoid index shifting
             for index in reversed(selected_indices):
                 del self.pdf_files[index]
 
+            # Clear status bar
+            self.status_label.config(text="")
+            
             # Refresh display and count; clear sort state so arrows disappear
             try:
                 self.sort_key = None
                 self.sort_reverse = False
                 self.refresh_listbox()
-                self.update_sort_buttons()
+                self.update_header_labels()
             except Exception:
                 self.refresh_listbox()
 
             self.update_count()
         except Exception:
-            messagebox.showwarning("Warning", "Please select a file to remove.")
+            messagebox.showwarning("Warning", "Please select a file to remove from the list.")
     
     def clear_files(self):
         """Clear all files from list"""
@@ -595,19 +632,23 @@ class PDFCombinerApp:
         
         count = len(self.pdf_files)
         file_word = "file" if count == 1 else "files"
-        if not messagebox.askyesno("Confirm Clear All", f"Remove all {count} {file_word}?"):
+        if not messagebox.askyesno("Confirm Clear All", f"Remove all {count} {file_word} from the list?"):
             return
         
         self.pdf_files.clear()
         self.rotation_vars.clear()
         self.page_range_vars.clear()
         self.page_range_last_valid.clear()
+        
+        # Clear status bar
+        self.status_label.config(text="")
+        
         try:
             # Clear any active sort when list is cleared
             self.sort_key = None
             self.sort_reverse = False
             self.refresh_listbox()
-            self.update_sort_buttons()
+            self.update_header_labels()
         except Exception:
             self.refresh_listbox()
 
@@ -690,7 +731,7 @@ class PDFCombinerApp:
             filename, size_str, date_str = self.get_file_info(file_path)
             
             # Number label
-            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Courier New", 9), bg="white", width=4, anchor='e')
+            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Droid Sans Mono", 9), bg="white", width=4, anchor='e')
             num_label.pack(side=tk.LEFT, padx=(0, 2))
             num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -700,7 +741,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Courier New", 9), bg="white", width=42, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Droid Sans Mono", 9), bg="white", width=42, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT)
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -710,7 +751,7 @@ class PDFCombinerApp:
             filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # File size label
-            size_label = tk.Label(row_frame, text=size_str, font=("Courier New", 9), bg="white", width=12, anchor='e')
+            size_label = tk.Label(row_frame, text=size_str, font=("Droid Sans Mono", 9), bg="white", width=12, anchor='e')
             size_label.pack(side=tk.LEFT)
             size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -720,7 +761,7 @@ class PDFCombinerApp:
             size_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Date label
-            date_label = tk.Label(row_frame, text=date_str, font=("Courier New", 9), bg="white", width=11, anchor='w')
+            date_label = tk.Label(row_frame, text=date_str, font=("Droid Sans Mono", 9), bg="white", width=11, anchor='w')
             date_label.pack(side=tk.LEFT, padx=(6, 0))
             date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -739,7 +780,7 @@ class PDFCombinerApp:
                 row_frame,
                 textvariable=page_range_var,
                 width=10,
-                font=("Courier New", 9)
+                font=("Droid Sans Mono", 9)
             )
             page_entry.pack(side=tk.LEFT, padx=(4, 0))
             
@@ -764,7 +805,7 @@ class PDFCombinerApp:
                 values=["0", "90", "180", "270"],
                 width=5,
                 state="readonly",
-                font=("Courier New", 9)
+                font=("Droid Sans Mono", 9)
             )
             rotation_dropdown.pack(side=tk.LEFT, padx=2)
             
@@ -801,6 +842,12 @@ class PDFCombinerApp:
                 for row in rows:
                     row._is_selected = False
                 row_frame._is_selected = True
+            
+            # Update status bar with selected file path
+            if 0 <= index < len(self.pdf_files):
+                file_entry = self.pdf_files[index]
+                file_path = self.get_file_path(file_entry)
+                self.status_label.config(text=file_path)
             
             # Update visuals immediately
             self._update_row_visuals()
@@ -852,12 +899,9 @@ class PDFCombinerApp:
             self._update_row_visuals()
 
             # Clear sort indicators
-            try:
-                self.sort_key = None
-                self.sort_reverse = False
-                self.update_sort_buttons()
-            except Exception:
-                pass
+            self.sort_key = None
+            self.sort_reverse = False
+            self.update_header_labels()
     
     def on_row_release(self, event, index: int):
         """Handle mouse up event"""
@@ -950,7 +994,13 @@ class PDFCombinerApp:
         self._save_settings()
     
     def on_row_hover(self, event, index: int):
-        """Handle row hover to show preview"""
+        """Handle row hover to show preview and update status bar"""
+        # Update status bar with full path
+        if 0 <= index < len(self.pdf_files):
+            file_entry = self.pdf_files[index]
+            file_path = self.get_file_path(file_entry)
+            self.status_label.config(text=file_path)
+        
         # Only show preview if enabled
         if not self.preview_enabled.get():
             return
@@ -963,7 +1013,8 @@ class PDFCombinerApp:
                 self._schedule_preview(index, file_path, event.x_root, event.y_root)
     
     def on_row_leave(self, event):
-        """Hide preview when mouse leaves row"""
+        """Hide preview and clear status bar when mouse leaves row"""
+        self.status_label.config(text="")
         if self.preview_after_id:
             self.root.after_cancel(self.preview_after_id)
             self.preview_after_id = None
@@ -1212,6 +1263,109 @@ class PDFCombinerApp:
             arrow = down if self.sort_reverse else up
             self.date_hdr.config(text=f'Date {arrow}')
     
+    
+    def show_help(self):
+        """Display help dialog with program instructions"""
+        help_text = """ADDING FILES
+• Click "Add PDFs to Combine..." to select PDF files to combine
+• Select one or multiple files from your computer using the file browser
+• Only PDF files can be added; other file types will be rejected
+• The same file cannot be added twice
+
+ORGANIZING FILES
+• Drag files up or down to change the order they'll be combined
+• Click a file to select it, Ctrl+Click on other files to select
+  more than one file
+• Hover over a file row to see the full path in the status bar at
+  the bottom of the screen
+
+SORTING
+• Click column headers (Filename, File Size, Date) to sort
+• Click again to reverse the sort order (arrows show sort direction)
+• An up arrow (▲) means ascending, down arrow (▼) means descending
+
+FILE PROPERTIES
+• Page rotation: Set 0°, 90°, 180°, or 270° (clockwise) for each file
+• Pages: Specify which pages to include in the combined PDF using:
+  - "All" or leave empty for all pages
+  - Single page: "5" (without the quotes)
+  - Range: "1-10"    (without the quotes)
+  - Multiple ranges: "1-3,5,7-9" (without the quotes)
+
+OUTPUT SETTINGS
+• Enter the desired filename for the combined PDF
+• Click "Browse" to choose where to save the combined PDF
+• Check "Add filename bookmarks" to create PDF bookmarks
+  from each source file's name in the combined PDF
+• Existing bookmarks in files will be preserved
+
+COMBINING PDFs
+• At least 2 files are required to combine
+• Click "Combine PDFs" to merge the files
+• Review the summary and click "Proceed"
+• The combined PDF will be created at your chosen location
+
+PREVIEW
+• Hover over a file to see a thumbnail of its first page
+• Uncheck "Preview first page on hover" to disable previews
+
+STATUS BAR
+• The bottom status bar shows the full path of the file
+  you're currently hovering over or have selected"""
+
+        # Create help window
+        help_window = tk.Toplevel(self.root)
+        help_window.title("PDF Combiner - Help")
+        help_window.geometry("550x600")
+        help_window.transient(self.root)
+        
+        # Center the help window
+        help_window.update_idletasks()
+        window_width = 550
+        window_height = 600
+        screen_width = help_window.winfo_screenwidth()
+        screen_height = help_window.winfo_screenheight()
+        center_x = int((screen_width - window_width) / 2)
+        center_y = int((screen_height - window_height) / 2)
+        help_window.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
+        
+        # Create a frame with scrollbar
+        help_frame = tk.Frame(help_window)
+        help_frame.pack(anchor=tk.W, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Scrollbar
+        scrollbar = tk.Scrollbar(help_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Text widget
+        text_widget = tk.Text(
+            help_frame,
+            font=("Arial", 9),
+            wrap=tk.WORD,
+            yscrollcommand=scrollbar.set,
+            bg="white",
+            fg="#000000",
+            padx=10,
+            pady=10
+        )
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=text_widget.yview)
+        
+        # Insert help text
+        text_widget.insert(tk.END, help_text)
+        text_widget.config(state=tk.DISABLED)  # Make read-only
+        
+        # Close button
+        close_button = tk.Button(
+            help_window,
+            text="Close",
+            command=help_window.destroy,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10),
+            width=15
+        )
+        close_button.pack(pady=10)
     
     def browse_output_location(self):
         """Open directory browser to select output location"""
