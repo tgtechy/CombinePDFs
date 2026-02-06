@@ -179,14 +179,26 @@ class PDFCombinerApp:
         input_frame = tk.Frame(self.notebook)
         self.notebook.add(input_frame, text="Input")
         
-        # Spacer to move content down by 25 pixels
-        spacer_frame = tk.Frame(input_frame, height=25)
+        # Spacer to move content down
+        spacer_frame = tk.Frame(input_frame, height=10)
         spacer_frame.pack()
         spacer_frame.pack_propagate(False)
         
+        # Main title with shadow effect using Canvas for better control
+        title_container = tk.Canvas(input_frame, width=280, height=30, bg=input_frame.cget('bg'), highlightthickness=0)
+        title_container.pack(pady=(0, 0))
+        
+        # Draw shadow text (offset, subtle light gray)
+        title_container.create_text(142, 17, text="PDF Combiner by tgtechy", font=("Arial", 14, "bold"), 
+                                   fill="#BBBBBB", anchor="center")
+        
+        # Draw main title text (blue) 
+        title_container.create_text(141, 16, text="PDF Combiner by tgtechy", font=("Arial", 14, "bold"), 
+                                   fill="#0059A6", anchor="center")
+        
         # Title and preview checkbox frame - same line
         title_frame = tk.Frame(input_frame)
-        title_frame.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(5, 5))
+        title_frame.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(2, 5))
         
         # Title above list
         title_label = tk.Label(title_frame, text="List and Order of Files to Combine:", font=("Arial", 10, "bold"))
