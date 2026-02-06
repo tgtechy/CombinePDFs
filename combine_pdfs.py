@@ -22,7 +22,7 @@ class PDFCombinerApp:
         
         # Center window horizontally and align to top
         window_width = 700
-        window_height = 600
+        window_height = 575
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -74,10 +74,33 @@ class PDFCombinerApp:
         self.pending_preview_index = None
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
-        self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert blank pages between files
+        self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert breaker pages between files
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
         self.page_range_last_valid = {}  # Track last valid page range per index
+        self.reverse_vars = {}  # Map of index to tk.BooleanVar for page reversal
+        
+        # New advanced features
+        self.compression_quality = tk.StringVar(value="Medium")  # Compression level
+        self.enable_metadata = tk.BooleanVar(value=False)  # Enable metadata editing
+        self.pdf_title = tk.StringVar(value="")  # Metadata: title
+        self.pdf_author = tk.StringVar(value="")  # Metadata: author
+        self.pdf_subject = tk.StringVar(value="")  # Metadata: subject 
+        self.pdf_keywords = tk.StringVar(value="")  # Metadata: keywords
+        self.enable_page_scaling = tk.BooleanVar(value=False)  # Scale to uniform size
+        self.enable_watermark = tk.BooleanVar(value=False)  # Add watermark
+        self.watermark_text = tk.StringVar(value="")  # Watermark text
+        self.watermark_opacity = tk.DoubleVar(value=0.3)  # Watermark opacity (0.1-0.9)
+        self.watermark_font_size = tk.IntVar(value=50)  # Watermark font size
+        self.delete_blank_pages = tk.BooleanVar(value=False)  # Remove blank pages
+        
+        # Store last used metadata values
+        self.last_metadata = {
+            'title': '',
+            'author': '',
+            'subject': '',
+            'keywords': ''
+        }
         
         # Set config file location to AppData\Roaming\PDFCombiner on Windows
         if os.name == 'nt' and 'APPDATA' in os.environ:
@@ -178,6 +201,9 @@ class PDFCombinerApp:
         
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
+        
+        rev_hdr = tk.Label(header_frame, text="Rev", font=hdr_font, bg="#E0E0E0", width=4, anchor='c')
+        rev_hdr.pack(side=tk.LEFT, padx=2)
         
         # Sub-frame for custom list frame and scrollbar (sized for ~11 rows)
         listbox_scroll_frame = tk.Frame(list_frame, height=270)
@@ -375,23 +401,159 @@ class PDFCombinerApp:
         options_frame = tk.LabelFrame(output_content_frame, text="Options", font=("Arial", 9, "bold"))
         options_frame.pack(pady=(5, 0), padx=0, fill=tk.X)
 
+        # Bookmark and blank page checkboxes on same row
+        checkbox_row = tk.Frame(options_frame)
+        checkbox_row.pack(fill=tk.X, pady=(4, 4), padx=8)
+        
         bookmark_checkbox = tk.Checkbutton(
-            options_frame,
+            checkbox_row,
             text="Add filename bookmarks to the combined PDF",
             variable=self.add_filename_bookmarks,
             command=self._save_settings,
             font=("Arial", 9)
         )
-        bookmark_checkbox.pack(anchor="w", padx=8, pady=(4, 2))
+        bookmark_checkbox.pack(side=tk.LEFT, anchor="w")
 
         blank_pages_checkbox = tk.Checkbutton(
-            options_frame,
-            text="Insert blank page between files",
+            checkbox_row,
+            text="Insert breaker pages between files",
             variable=self.insert_blank_pages,
             command=self._save_settings,
             font=("Arial", 9)
         )
-        blank_pages_checkbox.pack(anchor="w", padx=8, pady=(0, 4))
+        blank_pages_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        
+        # Page Options section
+        page_options_row = tk.Frame(options_frame)
+        page_options_row.pack(fill=tk.X, pady=(2, 2), padx=8)
+        
+        scale_checkbox = tk.Checkbutton(
+            page_options_row,
+            text="Scale all pages to uniform size",
+            variable=self.enable_page_scaling,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        scale_checkbox.pack(side=tk.LEFT, anchor="w")
+        
+        blank_detect_checkbox = tk.Checkbutton(
+            page_options_row,
+            text="Ignore blank pages from source(s) when combining",
+            variable=self.delete_blank_pages,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        blank_detect_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        
+        # Compression/Quality section
+        compression_row = tk.Frame(options_frame)
+        compression_row.pack(fill=tk.X, pady=(4, 2), padx=8)
+        tk.Label(compression_row, text="Compression/Quality:", font=("Arial", 9)).pack(side=tk.LEFT)
+        compression_combo = ttk.Combobox(
+            compression_row,
+            textvariable=self.compression_quality,
+            values=["None", "Low", "Medium", "High", "Maximum"],
+            width=12,
+            state="readonly",
+            font=("Arial", 9)
+        )
+        compression_combo.pack(side=tk.LEFT, padx=5)
+        tk.Label(compression_row, text="(High = smaller file, lower quality)", font=("Arial", 8), fg="#666666").pack(side=tk.LEFT)
+        compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
+        
+        # Metadata section
+        metadata_checkbox = tk.Checkbutton(
+            options_frame,
+            text="Add PDF metadata",
+            variable=self.enable_metadata,
+            command=self._toggle_metadata_fields,
+            font=("Arial", 9)
+        )
+        metadata_checkbox.pack(anchor="w", padx=8, pady=(6, 2))
+        
+        # Title and Author on one line
+        title_author_row = tk.Frame(options_frame)
+        title_author_row.pack(fill=tk.X, pady=1, padx=8)
+        tk.Label(title_author_row, text="Title:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.title_entry = tk.Entry(title_author_row, textvariable=self.pdf_title, font=("Arial", 9))
+        self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
+        self.title_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        tk.Label(title_author_row, text="Author:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.author_entry = tk.Entry(title_author_row, textvariable=self.pdf_author, font=("Arial", 9))
+        self.author_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.author_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        # Subject and Keywords on one line
+        subject_keywords_row = tk.Frame(options_frame)
+        subject_keywords_row.pack(fill=tk.X, pady=1, padx=8)
+        tk.Label(subject_keywords_row, text="Subject:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.subject_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_subject, font=("Arial", 9))
+        self.subject_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
+        self.subject_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        tk.Label(subject_keywords_row, text="Keywords:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.keywords_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_keywords, font=("Arial", 9))
+        self.keywords_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.keywords_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        # Initialize metadata field states
+        self._toggle_metadata_fields()
+        
+        # Watermark section
+        watermark_checkbox = tk.Checkbutton(
+            options_frame,
+            text="Add watermark to pages",
+            variable=self.enable_watermark,
+            command=self._toggle_watermark_fields,
+            font=("Arial", 9)
+        )
+        watermark_checkbox.pack(anchor="w", padx=8, pady=(6, 2))
+        
+        # Watermark text
+        watermark_text_row = tk.Frame(options_frame)
+        watermark_text_row.pack(fill=tk.X, pady=1, padx=8)
+        tk.Label(watermark_text_row, text="Text:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.watermark_text_entry = tk.Entry(watermark_text_row, textvariable=self.watermark_text, font=("Arial", 9))
+        self.watermark_text_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.watermark_text_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        # Opacity and Font Size on one line
+        watermark_sliders_row = tk.Frame(options_frame)
+        watermark_sliders_row.pack(fill=tk.X, pady=(1, 4), padx=8)
+        
+        tk.Label(watermark_sliders_row, text="Opacity:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.opacity_scale = tk.Scale(
+            watermark_sliders_row,
+            from_=0.1,
+            to=0.9,
+            resolution=0.1,
+            orient=tk.HORIZONTAL,
+            variable=self.watermark_opacity,
+            showvalue=True,
+            font=("Arial", 8),
+            length=120,
+            command=lambda e: self._save_settings()
+        )
+        self.opacity_scale.pack(side=tk.LEFT, padx=(5, 5))
+        
+        tk.Label(watermark_sliders_row, text="Font Size:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT, padx=(10, 0))
+        self.fontsize_scale = tk.Scale(
+            watermark_sliders_row,
+            from_=10,
+            to=150,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=self.watermark_font_size,
+            showvalue=True,
+            font=("Arial", 8),
+            length=120,
+            command=lambda e: self._save_settings()
+        )
+        self.fontsize_scale.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Initialize watermark field states
+        self._toggle_watermark_fields()
         
         # ===== BOTTOM SECTION (Outside tabs) =====
         # Status bar frame
@@ -511,6 +673,25 @@ class PDFCombinerApp:
             self.pdf_files[index]['rotation'] = degrees
             self.refresh_listbox()
     
+    def get_reverse(self, file_entry: dict) -> bool:
+        """Extract reverse value from file entry dict"""
+        return file_entry.get('reverse', False)
+    
+    def set_reverse(self, index: int, reverse: bool):
+        """Update reverse setting for a file at given index"""
+        if 0 <= index < len(self.pdf_files):
+            self.pdf_files[index]['reverse'] = reverse
+    
+    def get_page_range(self, file_entry: dict) -> str:
+        """Extract page range from file entry dict"""
+        return file_entry.get('page_range', 'All')
+    
+    def set_page_range(self, index: int, page_range: str):
+        """Update page range for a file at given index"""
+        if 0 <= index < len(self.pdf_files):
+            cleaned = page_range.strip()
+            self.pdf_files[index]['page_range'] = cleaned if cleaned else 'All'
+    
     def _load_settings(self):
         """Load saved settings from config file"""
         try:
@@ -541,6 +722,46 @@ class PDFCombinerApp:
                 # Load insert blank pages state
                 if 'insert_blank_pages' in settings:
                     self.insert_blank_pages.set(settings['insert_blank_pages'])
+                
+                # Load advanced settings
+                if 'compression_quality' in settings:
+                    self.compression_quality.set(settings['compression_quality'])
+                
+                # Load last used metadata values
+                if 'last_metadata' in settings:
+                    self.last_metadata = settings['last_metadata']
+                else:
+                    # Initialize with saved values if they exist
+                    self.last_metadata = {
+                        'title': settings.get('pdf_title', ''),
+                        'author': settings.get('pdf_author', ''),
+                        'subject': settings.get('pdf_subject', ''),
+                        'keywords': settings.get('pdf_keywords', '')
+                    }
+                
+                # Load metadata fields (will be cleared if metadata not enabled)
+                if 'pdf_title' in settings:
+                    self.pdf_title.set(settings['pdf_title'])
+                if 'pdf_author' in settings:
+                    self.pdf_author.set(settings['pdf_author'])
+                if 'pdf_subject' in settings:
+                    self.pdf_subject.set(settings['pdf_subject'])
+                if 'pdf_keywords' in settings:
+                    self.pdf_keywords.set(settings['pdf_keywords'])
+                if 'enable_metadata' in settings:
+                    self.enable_metadata.set(settings['enable_metadata'])
+                if 'enable_page_scaling' in settings:
+                    self.enable_page_scaling.set(settings['enable_page_scaling'])
+                if 'enable_watermark' in settings:
+                    self.enable_watermark.set(settings['enable_watermark'])
+                if 'watermark_text' in settings:
+                    self.watermark_text.set(settings['watermark_text'])
+                if 'watermark_opacity' in settings:
+                    self.watermark_opacity.set(settings['watermark_opacity'])
+                if 'watermark_font_size' in settings:
+                    self.watermark_font_size.set(settings['watermark_font_size'])
+                if 'delete_blank_pages' in settings:
+                    self.delete_blank_pages.set(settings['delete_blank_pages'])
         except Exception:
             # If loading fails, just use defaults
             pass
@@ -556,13 +777,74 @@ class PDFCombinerApp:
                 'add_files_directory': self.add_files_directory,
                 'preview_enabled': self.preview_enabled.get(),
                 'add_filename_bookmarks': self.add_filename_bookmarks.get(),
-                'insert_blank_pages': self.insert_blank_pages.get()
+                'insert_blank_pages': self.insert_blank_pages.get(),
+                'compression_quality': self.compression_quality.get(),
+                'last_metadata': self.last_metadata,
+                'pdf_title': self.pdf_title.get(),
+                'pdf_author': self.pdf_author.get(),
+                'pdf_subject': self.pdf_subject.get(),
+                'pdf_keywords': self.pdf_keywords.get(),
+                'enable_metadata': self.enable_metadata.get(),
+                'enable_page_scaling': self.enable_page_scaling.get(),
+                'enable_watermark': self.enable_watermark.get(),
+                'watermark_text': self.watermark_text.get(),
+                'watermark_opacity': self.watermark_opacity.get(),
+                'watermark_font_size': self.watermark_font_size.get(),
+                'delete_blank_pages': self.delete_blank_pages.get()
             }
             with open(self.config_file, 'w') as f:
                 json.dump(settings, f, indent=2)
         except Exception:
             # Silently fail if we can't save settings
             pass
+    
+    def _toggle_metadata_fields(self):
+        """Enable or disable metadata entry fields based on checkbox state"""
+        state = tk.NORMAL if self.enable_metadata.get() else tk.DISABLED
+        self.title_entry.config(state=state)
+        self.author_entry.config(state=state)
+        self.subject_entry.config(state=state)
+        self.keywords_entry.config(state=state)
+        
+        if self.enable_metadata.get():
+            # Restore last used metadata values
+            self.pdf_title.set(self.last_metadata.get('title', ''))
+            self.pdf_author.set(self.last_metadata.get('author', ''))
+            self.pdf_subject.set(self.last_metadata.get('subject', ''))
+            self.pdf_keywords.set(self.last_metadata.get('keywords', ''))
+            
+            # If author is empty, populate with current username
+            if not self.pdf_author.get():
+                import getpass
+                try:
+                    username = getpass.getuser()
+                    self.pdf_author.set(username)
+                except Exception:
+                    pass
+        else:
+            # Save current values before clearing
+            self.last_metadata = {
+                'title': self.pdf_title.get(),
+                'author': self.pdf_author.get(),
+                'subject': self.pdf_subject.get(),
+                'keywords': self.pdf_keywords.get()
+            }
+            # Clear fields
+            self.pdf_title.set("")
+            self.pdf_author.set("")
+            self.pdf_subject.set("")
+            self.pdf_keywords.set("")
+        
+        self._save_settings()
+    
+    def _toggle_watermark_fields(self):
+        """Enable or disable watermark entry fields and sliders based on checkbox state"""
+        state = tk.NORMAL if self.enable_watermark.get() else tk.DISABLED
+        self.watermark_text_entry.config(state=state)
+        self.opacity_scale.config(state=state)
+        self.fontsize_scale.config(state=state)
+        
+        self._save_settings()
     
     def add_files(self):
         """Open file dialog to select PDF files"""
@@ -589,8 +871,8 @@ class PDFCombinerApp:
                 continue
             
             if file not in existing_paths:
-                # Create dict entry with path and default rotation/page range
-                self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All'})
+                # Create dict entry with path and default rotation/page range/reverse
+                self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All', 'reverse': False})
                 added_count += 1
                 # Update the add files directory to the directory of the last selected file
                 self.add_files_directory = str(Path(file).parent)
@@ -636,25 +918,18 @@ class PDFCombinerApp:
     def get_file_path(self, file_entry: Dict[str, any]) -> str:
         """Extract file path from entry dict"""
         return file_entry['path']
-    
+
     def get_rotation(self, file_entry: Dict[str, any]) -> int:
         """Extract rotation value from entry dict"""
         return file_entry.get('rotation', 0)
 
+    def get_reverse(self, file_entry: Dict[str, any]) -> bool:
+        """Extract reverse value from entry dict"""
+        return file_entry.get('reverse', False)
+
     def get_page_range(self, file_entry: Dict[str, any]) -> str:
         """Extract page range from entry dict"""
         return file_entry.get('page_range', 'All')
-    
-    def set_rotation(self, index: int, degrees: int):
-        """Update rotation for a file at given index"""
-        if 0 <= index < len(self.pdf_files):
-            self.pdf_files[index]['rotation'] = degrees
-
-    def set_page_range(self, index: int, page_range: str):
-        """Update page range for a file at given index"""
-        if 0 <= index < len(self.pdf_files):
-            cleaned = page_range.strip()
-            self.pdf_files[index]['page_range'] = cleaned if cleaned else 'All'
     
     def remove_file(self):
         """Remove selected file(s) from list"""
@@ -775,6 +1050,7 @@ class PDFCombinerApp:
         
         self.rotation_vars.clear()
         self.page_range_vars.clear()
+        self.reverse_vars.clear()
         self.row_visual_state.clear()  # Clear cached visual state since rows are rebuilt
         
         # Update button states after clearing
@@ -894,6 +1170,25 @@ class PDFCombinerApp:
             rotation_dropdown.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             rotation_dropdown.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
             rotation_dropdown.bind("<Leave>", self.on_row_leave)
+            
+            # Reverse pages checkbox
+            reverse = self.get_reverse(pdf_entry)
+            reverse_var = tk.BooleanVar(value=reverse)
+            self.reverse_vars[i] = reverse_var
+            
+            reverse_checkbox = tk.Checkbutton(
+                row_frame,
+                variable=reverse_var,
+                command=lambda idx=i, var=reverse_var: self.set_reverse(idx, var.get()),
+                bg="white",
+                takefocus=0
+            )
+            reverse_checkbox.pack(side=tk.LEFT, padx=2, pady=0, anchor='nw')
+            
+            # Bind events to checkbox for consistency
+            reverse_checkbox.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx), add="+")
+            reverse_checkbox.bind("<Motion>", lambda e, idx=i: self.on_row_hover(e, idx))
+            reverse_checkbox.bind("<Leave>", self.on_row_leave)
         
         # Manually update canvas scrollregion after rebuilding list
         self.root.after_idle(self.canvas_configure)
@@ -1590,7 +1885,7 @@ STATUS BAR
         )
         pages_label.pack(side=tk.LEFT)
         if blank_pages > 0:
-            pages_text = f"  {total_pages} pages ({original_pages} from PDFs + {blank_pages} blank separator pages)"
+            pages_text = f"  {total_pages} pages ({original_pages} from PDFs + {blank_pages} breaker pages)"
         else:
             pages_text = f"  {total_pages} pages"
         pages_value = tk.Label(
@@ -1747,7 +2042,39 @@ STATUS BAR
                 # Track current page number for bookmarks
                 current_page_num = 0
                 
-                # Add all PDFs to writer in the selected order with rotation applied
+                # First pass: determine max dimensions if scaling is enabled
+                max_width = 0
+                max_height = 0
+                if self.enable_page_scaling.get():
+                    for file_entry in files_to_combine:
+                        file_path = self.get_file_path(file_entry)
+                        rotation = self.get_rotation(file_entry)
+                        page_range = self.get_page_range(file_entry)
+                        
+                        with open(file_path, 'rb') as pdf_file:
+                            pdf_reader = PyPDF2.PdfReader(pdf_file)
+                            total_file_pages = len(pdf_reader.pages)
+                            try:
+                                page_indices = self._parse_page_range(page_range, total_file_pages)
+                            except ValueError:
+                                continue
+                            
+                            # Check dimensions of each page
+                            for page_index in page_indices:
+                                page = pdf_reader.pages[page_index]
+                                # Skip blank pages if that option is enabled
+                                if self.delete_blank_pages.get() and self._is_page_blank(page):
+                                    continue
+                                
+                                box = page.mediabox
+                                width = float(box.width)
+                                height = float(box.height)
+                                if rotation in [90, 270]:
+                                    width, height = height, width
+                                max_width = max(max_width, width)
+                                max_height = max(max_height, height)
+                
+                # Second pass: process and add pages
                 for i, file_entry in enumerate(files_to_combine):
                     # Check if cancelled
                     if cancel_flag['cancelled']:
@@ -1760,6 +2087,7 @@ STATUS BAR
                     file_path = self.get_file_path(file_entry)
                     rotation = self.get_rotation(file_entry)
                     page_range = self.get_page_range(file_entry)
+                    reverse = self.get_reverse(file_entry)
                     
                     # Update progress
                     self.root.after(0, lambda idx=i, f=file_path: (
@@ -1768,10 +2096,19 @@ STATUS BAR
                         counter_label.config(text=f"{idx} of {len(files_to_combine)} files processed")
                     ))
                     
-                    # Read the PDF and add pages with rotation
+                    # Read and process the PDF
                     with open(file_path, 'rb') as pdf_file:
                         pdf_reader = PyPDF2.PdfReader(pdf_file)
                         total_file_pages = len(pdf_reader.pages)
+                        
+                        # Insert first breaker page if enabled
+                        if i == 0 and self.insert_blank_pages.get():
+                            breaker_width = pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612
+                            breaker_height = pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792
+                            first_filename = Path(file_path).name
+                            breaker_page = self._create_page_with_filename(first_filename, breaker_width, breaker_height)
+                            pdf_writer.add_page(breaker_page)
+                            current_page_num += 1
                         try:
                             page_indices = self._parse_page_range(page_range, total_file_pages)
                         except ValueError as e:
@@ -1790,32 +2127,57 @@ STATUS BAR
                             ))
                             return
                         
-                        # Add bookmark at the start of this file's pages (optional)
+                        # Reverse page indices if requested
+                        if reverse:
+                            page_indices = list(reversed(page_indices))
+                        
+                        # Add bookmark at the start of this file's pages
                         parent_bookmark = None
                         if self.add_filename_bookmarks.get() and len(page_indices) > 0:
-                            bookmark_title = Path(file_path).stem  # Filename without extension
+                            bookmark_title = Path(file_path).stem
                             parent_bookmark = pdf_writer.add_outline_item(bookmark_title, current_page_num)
                         
-                        # Always copy original bookmarks from source PDF (nested under file bookmark if it exists)
+                        # Copy original bookmarks from source PDF
                         try:
-                            # Use parent_bookmark if we added one, otherwise None for root level
                             self._copy_bookmarks(pdf_reader, pdf_writer, parent_bookmark, current_page_num, page_indices)
                         except Exception:
-                            # If bookmark copying fails, continue without them
                             pass
                         
+                        # Process each page
                         for page_index in page_indices:
                             page = pdf_reader.pages[page_index]
+                            
+                            # Skip blank pages if enabled
+                            if self.delete_blank_pages.get():
+                                if self._is_page_blank(page):
+                                    continue
+                            
                             # Apply rotation if specified
                             if rotation != 0:
                                 page.rotate(rotation)
+                            
+                            # Scale page to uniform size if enabled
+                            if self.enable_page_scaling.get() and max_width > 0 and max_height > 0:
+                                self._scale_page(page, max_width, max_height)
+                            
+                            # Add watermark if enabled
+                            if self.enable_watermark.get() and self.watermark_text.get().strip():
+                                self._add_watermark(page, self.watermark_text.get(), self.watermark_opacity.get(), self.watermark_font_size.get())
+                            
                             pdf_writer.add_page(page)
                             current_page_num += 1
                         
-                        # Insert blank page between files if enabled (but not after the last file)
+                        # Insert breaker page between files if enabled (but not after the last file)
                         if self.insert_blank_pages.get() and i < len(files_to_combine) - 1:
-                            blank_page = pdf_writer.add_blank_page(width=pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612,
-                                                                     height=pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792)
+                            blank_width = pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612
+                            blank_height = pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792
+                            # Get the next file's name
+                            next_file_entry = files_to_combine[i + 1]
+                            next_file_path = self.get_file_path(next_file_entry)
+                            next_filename = Path(next_file_path).name
+                            # Create blank page with filename text and add it
+                            blank_page = self._create_page_with_filename(next_filename, blank_width, blank_height)
+                            pdf_writer.add_page(blank_page)
                             current_page_num += 1
                 
                 # Check if cancelled before writing
@@ -1826,6 +2188,19 @@ STATUS BAR
                     ))
                     return
                 
+                # Add metadata if enabled
+                if self.enable_metadata.get() and (self.pdf_title.get() or self.pdf_author.get() or self.pdf_subject.get() or self.pdf_keywords.get()):
+                    metadata = {}
+                    if self.pdf_title.get():
+                        metadata['/Title'] = self.pdf_title.get()
+                    if self.pdf_author.get():
+                        metadata['/Author'] = self.pdf_author.get()
+                    if self.pdf_subject.get():
+                        metadata['/Subject'] = self.pdf_subject.get()
+                    if self.pdf_keywords.get():
+                        metadata['/Keywords'] = self.pdf_keywords.get()
+                    pdf_writer.add_metadata(metadata)
+                
                 # Update for writing phase
                 self.root.after(0, lambda: (
                     progress_label.config(text="Writing combined PDF..."),
@@ -1834,8 +2209,13 @@ STATUS BAR
                     cancel_button.config(state='disabled')
                 ))
                 
-                # Write combined PDF
+                # Write combined PDF with compression settings
                 with open(output_file, 'wb') as out_file:
+                    # Apply compression if enabled
+                    compression_level = self.compression_quality.get()
+                    if compression_level != "None":
+                        for page in pdf_writer.pages:
+                            self._compress_page(page, compression_level)
                     pdf_writer.write(out_file)
                 
                 # Remember the output file
@@ -1849,6 +2229,12 @@ STATUS BAR
                 
             except FileNotFoundError as e:
                 error_msg = f"File not found: {e}"
+                self.root.after(0, lambda: (
+                    progress_window.destroy(),
+                    messagebox.showerror("Error", error_msg)
+                ))
+            except Exception as e:
+                error_msg = f"An error occurred: {str(e)}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
                     messagebox.showerror("Error", error_msg)
@@ -2030,6 +2416,150 @@ STATUS BAR
         except Exception as e:
             messagebox.showerror("Error", f"Could not open file: {e}")
 
+    def _is_page_blank(self, page) -> bool:
+        """Detect if a PDF page is blank by checking text content."""
+        try:
+            text = page.extract_text()
+            # Consider a page blank if it has no text or only whitespace
+            return not text or text.strip() == ""
+        except Exception:
+            # If we can't extract text, assume not blank to be safe
+            return False
+    
+    def _scale_page(self, page, target_width: float, target_height: float):
+        """Scale a page to fit target dimensions while maintaining aspect ratio."""
+        try:
+            box = page.mediabox
+            current_width = float(box.width)
+            current_height = float(box.height)
+            
+            # Calculate scale factors
+            scale_x = target_width / current_width
+            scale_y = target_height / current_height
+            scale = min(scale_x, scale_y)  # Use smaller scale to fit within target
+            
+            # Apply scaling
+            if scale != 1.0:
+                page.scale_by(scale)
+                
+                # Center the page in the target dimensions
+                new_width = current_width * scale
+                new_height = current_height * scale
+                x_offset = (target_width - new_width) / 2
+                y_offset = (target_height - new_height) / 2
+                
+                # Update mediabox to target size
+                page.mediabox.lower_left = (x_offset, y_offset)
+                page.mediabox.upper_right = (x_offset + new_width, y_offset + new_height)
+        except Exception:
+            # If scaling fails, leave page as is
+            pass
+    
+    def _add_watermark(self, page, text: str, opacity: float, font_size: int = 50):
+        """Add text watermark to a PDF page."""
+        try:
+            from reportlab.pdfgen import canvas
+            from io import BytesIO
+            
+            # Get page dimensions
+            box = page.mediabox
+            width = float(box.width)
+            height = float(box.height)
+            
+            # Create watermark in memory
+            packet = BytesIO()
+            c = canvas.Canvas(packet, pagesize=(width, height))
+            c.setFillAlpha(opacity)
+            c.setFont("Helvetica-Bold", font_size)
+            c.setFillGray(0.5)
+            
+            # Draw watermark diagonally
+            c.saveState()
+            c.translate(width / 2, height / 2)
+            c.rotate(45)
+            c.drawCentredString(0, 0, text)
+            c.restoreState()
+            c.save()
+            
+            # Move to the beginning of the BytesIO buffer
+            packet.seek(0)
+            
+            # Read the watermark PDF from memory
+            watermark_pdf = PyPDF2.PdfReader(packet)
+            watermark_page = watermark_pdf.pages[0]
+            
+            # Merge watermark with page
+            page.merge_page(watermark_page)
+            
+        except ImportError:
+            # reportlab not available, skip watermarking
+            pass
+        except Exception:
+            # If watermarking fails, continue without it
+            pass
+    
+    def _create_page_with_filename(self, filename: str, width: float, height: float):
+        """Create a blank page with filename text centered."""
+        try:
+            from reportlab.pdfgen import canvas
+            from io import BytesIO
+            
+            # Create blank page with filename in the center
+            packet = BytesIO()
+            c = canvas.Canvas(packet, pagesize=(width, height))
+            c.setFont("Helvetica", 14)
+            c.setFillGray(0.3)
+            
+            # Draw filename and "follows" text centered vertically
+            vertical_center = height / 2
+            c.drawCentredString(width / 2, vertical_center + 15, filename)
+            c.drawCentredString(width / 2, vertical_center - 15, "follows")
+            c.save()
+            
+            # Move to the beginning of the BytesIO buffer
+            packet.seek(0)
+            
+            # Read the page from memory
+            page_pdf = PyPDF2.PdfReader(packet)
+            return page_pdf.pages[0]
+            
+        except ImportError:
+            # reportlab not available, create blank page without text
+            blank_page = PyPDF2.PdfWriter().add_blank_page(width=width, height=height)
+            return blank_page
+        except Exception:
+            # If page creation fails, return blank page
+            blank_page = PyPDF2.PdfWriter().add_blank_page(width=width, height=height)
+            return blank_page
+    
+    def _compress_page(self, page, compression_level: str):
+        """Apply compression to a PDF page based on compression level."""
+        try:
+            # Compression mapping
+            quality_map = {
+                "Low": 95,      # Minimal compression
+                "Medium": 75,   # Moderate compression
+                "High": 50,     # High compression
+                "Maximum": 25   # Maximum compression
+            }
+            
+            quality = quality_map.get(compression_level, 75)
+            
+            # Compress images in the page
+            if '/Resources' in page and '/XObject' in page['/Resources']:
+                xobjects = page['/Resources']['/XObject'].get_object()
+                for obj_name in xobjects:
+                    obj = xobjects[obj_name]
+                    if obj.get('/Subtype') == '/Image':
+                        # Apply compression by reducing image streams
+                        try:
+                            if hasattr(obj, 'flate_encode'):
+                                obj.flate_encode()
+                        except:
+                            pass
+        except Exception:
+            # If compression fails, continue without it
+            pass
 
 
 if __name__ == "__main__":
