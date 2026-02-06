@@ -1,4 +1,4 @@
-# Combine Several PDF Documents into a Single File
+# Combine Several PDF Documents into a Single PDF File
 
 A free Windows 10/11 program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks and more.
 
