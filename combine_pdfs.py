@@ -15,6 +15,36 @@ import threading
 
 __VERSION__ = "1.2.1"
 
+class ToolTip:
+    """Create a tooltip for a given widget"""
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+    
+    def show_tooltip(self, event=None):
+        if self.tooltip_window or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert") if hasattr(self.widget, 'bbox') else (0, 0, 0, 0)
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        
+        self.tooltip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        
+        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                        background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                        font=("Arial", 9), padx=8, pady=6)
+        label.pack()
+    
+    def hide_tooltip(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
+
 class PDFCombinerApp:
     def __init__(self, root):
         self.root = root
@@ -126,10 +156,19 @@ class PDFCombinerApp:
                   padding=[('selected', [10, 4])])
         
         # Configure Combobox style to match file list background
-        style.configure('TCombobox', fieldbackground='white', background='white', foreground='black', relief='flat', borderwidth=0)
+        style.configure('TCombobox', 
+                       fieldbackground='white', 
+                       background='white', 
+                       foreground='black', 
+                       selectbackground='white',
+                       selectforeground='black',
+                       relief='flat', 
+                       borderwidth=0)
         style.map('TCombobox',
-                  fieldbackground=[('readonly', 'white'), ('disabled', 'white')],
-                  background=[('readonly', 'white'), ('disabled', 'white')])
+                  fieldbackground=[('readonly', 'white'), ('disabled', 'white'), ('focus', 'white'), ('!focus', 'white')],
+                  background=[('readonly', 'white'), ('disabled', 'white')],
+                  selectbackground=[('readonly', 'white'), ('disabled', 'white'), ('focus', 'white'), ('!focus', 'white')],
+                  selectforeground=[('readonly', 'black'), ('disabled', 'gray'), ('focus', 'black'), ('!focus', 'black')])
         
         # Create notebook (tabbed interface)
         self.notebook = ttk.Notebook(root, style='TNotebook')
@@ -176,7 +215,7 @@ class PDFCombinerApp:
         num_hdr.pack(side=tk.LEFT, padx=(0, 2))
 
         # Filename header - clickable
-        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=58, anchor='w')
+        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=54, anchor='w')
         self.filename_hdr.pack(side=tk.LEFT)
         self.filename_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('name'))
         self.filename_hdr.bind("<Enter>", lambda e: self.filename_hdr.config(cursor="hand2"))
@@ -198,12 +237,15 @@ class PDFCombinerApp:
         
         pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
         pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
+        ToolTip(pages_hdr, "Specify page range to include from this PDF.\nExamples: '1-5', '1,3,5', '1-3,7-9'\nLeave blank to include all pages.")
         
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
+        ToolTip(rot_hdr, "Rotate all pages in this PDF.\nOptions: 0°, 90°, 180°, 270°")
         
         rev_hdr = tk.Label(header_frame, text="Rev", font=hdr_font, bg="#E0E0E0", width=4, anchor='c')
         rev_hdr.pack(side=tk.LEFT, padx=2)
+        ToolTip(rev_hdr, "Reverse the page order of this PDF.\nLast page becomes first, first becomes last.")
         
         # Sub-frame for custom list frame and scrollbar (sized for ~11 rows)
         listbox_scroll_frame = tk.Frame(list_frame, height=270)
@@ -431,7 +473,7 @@ class PDFCombinerApp:
             page_options_row,
             text="Scale all pages to uniform size",
             variable=self.enable_page_scaling,
-            command=self._save_settings,
+            command=self._toggle_page_scaling,
             font=("Arial", 9)
         )
         scale_checkbox.pack(side=tk.LEFT, anchor="w")
@@ -460,6 +502,7 @@ class PDFCombinerApp:
         compression_combo.pack(side=tk.LEFT, padx=5)
         tk.Label(compression_row, text="(High = smaller file, lower quality)", font=("Arial", 8), fg="#666666").pack(side=tk.LEFT)
         compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
+        compression_combo.bind("<FocusOut>", lambda e: self._validate_compression_quality())
         
         # Metadata section
         metadata_checkbox = tk.Checkbutton(
@@ -837,6 +880,39 @@ class PDFCombinerApp:
         
         self._save_settings()
     
+    def _validate_compression_quality(self):
+        """Ensure compression quality always has a valid value"""
+        valid_values = ["None", "Low", "Medium", "High", "Maximum"]
+        current = self.compression_quality.get()
+        if current not in valid_values:
+            # Reset to default if invalid or empty
+            self.compression_quality.set("Medium")
+            self._save_settings()
+    
+    def _validate_rotation(self, index: int, var: tk.StringVar):
+        """Ensure rotation dropdown always has a valid value"""
+        valid_values = ["0", "90", "180", "270"]
+        current = var.get()
+        if current not in valid_values:
+            # Reset to default if invalid or empty
+            var.set("0")
+            self.set_rotation(index, 0)
+    
+    def _toggle_page_scaling(self):
+        """Handle page scaling checkbox toggle with warning"""
+        if self.enable_page_scaling.get():
+            # Show warning when enabling
+            result = messagebox.askyesno(
+                "Page Scaling Warning",
+                "This option can produce unexpected results when the source PDFs have widely varying page sizes and rotations.\n\nProceed?",
+                icon='warning'
+            )
+            if not result:
+                # User clicked No, uncheck the box
+                self.enable_page_scaling.set(False)
+        
+        self._save_settings()
+    
     def _toggle_watermark_fields(self):
         """Enable or disable watermark entry fields and sliders based on checkbox state"""
         state = tk.NORMAL if self.enable_watermark.get() else tk.DISABLED
@@ -1088,7 +1164,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", width=58, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", width=54, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1165,6 +1241,9 @@ class PDFCombinerApp:
                     pass
             
             rotation_var.trace("w", lambda *args, var=rotation_var, idx=i: on_rotation_change(var, idx))
+            
+            # Bind FocusOut to validate rotation value
+            rotation_dropdown.bind("<FocusOut>", lambda e, idx=i, var=rotation_var: self._validate_rotation(idx, var))
             
             # Bind events to dropdown too for consistency
             rotation_dropdown.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
