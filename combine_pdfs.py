@@ -1876,8 +1876,35 @@ Key Factors Affecting Performance:
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=text_widget.yview)
         
-        # Insert help text
-        text_widget.insert(tk.END, help_text)
+        # Configure text tags for formatting
+        text_widget.tag_config("header", font=("Arial", 10, "bold"), foreground="#0066CC")
+        text_widget.tag_config("subheader", font=("Arial", 9, "bold"), foreground="#333333")
+        text_widget.tag_config("normal", font=("Arial", 9), foreground="#000000")
+        
+        # Insert help text with formatting
+        sections = help_text.split('\n\n')
+        
+        for i, section in enumerate(sections):
+            lines = section.split('\n')
+            if not lines:
+                continue
+            
+            # First line in each section is a header
+            header_line = lines[0].strip()
+            if header_line:
+                text_widget.insert(tk.END, header_line + "\n", "header")
+            
+            # Add remaining lines as normal text
+            for line in lines[1:]:
+                if line.strip():
+                    text_widget.insert(tk.END, line + "\n", "normal")
+                else:
+                    text_widget.insert(tk.END, "\n")
+            
+            # Add spacing between sections
+            if i < len(sections) - 1:
+                text_widget.insert(tk.END, "\n")
+        
         text_widget.config(state=tk.DISABLED)  # Make read-only
         
         # Close button
