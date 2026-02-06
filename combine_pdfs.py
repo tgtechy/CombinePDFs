@@ -189,14 +189,13 @@ class PDFCombinerApp:
             if self.updating_visuals:
                 return  # Skip during visual-only updates
             
-            # Get the actual bounding box and ensure it starts at (0, 0)
-            bbox = self.file_list_canvas.bbox("all")
-            if bbox:
-                # bbox is (x1, y1, x2, y2) - ensure it starts at 0,0
-                new_region = (0, 0, bbox[2], bbox[3])
-            else:
-                # Empty frame
-                new_region = (0, 0, 1, 1)
+            # Update the scrollregion to encompass the frame
+            self.file_list_frame.update_idletasks()
+            # Use the frame's required size for scrollregion
+            frame_width = self.file_list_frame.winfo_reqwidth()
+            frame_height = self.file_list_frame.winfo_reqheight()
+            
+            new_region = (0, 0, max(frame_width, 1), max(frame_height, 1))
             
             if new_region != self.last_scrollregion:
                 self.last_scrollregion = new_region
