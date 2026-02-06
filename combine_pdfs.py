@@ -22,7 +22,7 @@ class PDFCombinerApp:
         
         # Center window horizontally and align to top
         window_width = 700
-        window_height = 640
+        window_height = 600
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -132,14 +132,26 @@ class PDFCombinerApp:
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
         num_hdr.pack(side=tk.LEFT)
 
-        filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=42, anchor='w')
-        filename_hdr.pack(side=tk.LEFT)
+        # Filename header - clickable
+        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=42, anchor='w', relief=tk.RIDGE, bd=1)
+        self.filename_hdr.pack(side=tk.LEFT)
+        self.filename_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('name'))
+        self.filename_hdr.bind("<Enter>", lambda e: self.filename_hdr.config(cursor="hand2"))
+        self.filename_hdr.bind("<Leave>", lambda e: self.filename_hdr.config(cursor="arrow"))
 
-        size_hdr = tk.Label(header_frame, text="File Size", font=hdr_font, bg="#E0E0E0", width=12, anchor='e')
-        size_hdr.pack(side=tk.LEFT)
+        # File Size header - clickable
+        self.size_hdr = tk.Label(header_frame, text="File Size", font=hdr_font, bg="#E0E0E0", width=12, anchor='e', relief=tk.RIDGE, bd=1)
+        self.size_hdr.pack(side=tk.LEFT)
+        self.size_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('size'))
+        self.size_hdr.bind("<Enter>", lambda e: self.size_hdr.config(cursor="hand2"))
+        self.size_hdr.bind("<Leave>", lambda e: self.size_hdr.config(cursor="arrow"))
 
-        date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
-        date_hdr.pack(side=tk.LEFT, padx=(6,0))
+        # Date header - clickable
+        self.date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w', relief=tk.RIDGE, bd=1)
+        self.date_hdr.pack(side=tk.LEFT, padx=(6,0))
+        self.date_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('date'))
+        self.date_hdr.bind("<Enter>", lambda e: self.date_hdr.config(cursor="hand2"))
+        self.date_hdr.bind("<Leave>", lambda e: self.date_hdr.config(cursor="arrow"))
         
         pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
         pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
@@ -217,32 +229,15 @@ class PDFCombinerApp:
         # Drag and drop instruction
         drag_drop_note = tk.Label(
             root,
-            text="After adding files, single click to select. Ctrl-Click to select multiple. Drag to change order, Hover to see first page, Double click to open.",
+            text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview the first page. Double-click to open a file. Click column headers to sort.",
             font=("Arial", 8),
             fg="#666666"
         )
         drag_drop_note.pack(pady=1)
         
-        # Sort selection frame (replace previous Combine Order controls)
-        sort_frame = tk.LabelFrame(root, text="Sort List", font=("Arial", 10, "bold"), padx=10, pady=5)
-        sort_frame.pack(pady=5, padx=10, fill=tk.X)
-
         # Sorting state
         self.sort_key = None  # 'name' | 'size' | 'date'
         self.sort_reverse = False
-
-        # Buttons to sort by Name / Size / Date (click toggles reverse for that key)
-        btn_frame = tk.Frame(sort_frame)
-        btn_frame.pack()
-
-        self.sort_name_button = tk.Button(btn_frame, text="Name", command=lambda: self.on_sort_clicked('name'), width=12, state=tk.DISABLED)
-        self.sort_name_button.pack(side=tk.LEFT, padx=4)
-
-        self.sort_size_button = tk.Button(btn_frame, text="Size", command=lambda: self.on_sort_clicked('size'), width=12, state=tk.DISABLED)
-        self.sort_size_button.pack(side=tk.LEFT, padx=4)
-
-        self.sort_date_button = tk.Button(btn_frame, text="Date", command=lambda: self.on_sort_clicked('date'), width=12, state=tk.DISABLED)
-        self.sort_date_button.pack(side=tk.LEFT, padx=4)
         
         # Button frame below listbox for Remove/Clear buttons
         listbox_button_frame = tk.Frame(root)
@@ -320,7 +315,7 @@ class PDFCombinerApp:
         self.location_label = tk.Label(
             dir_box,
             text=self.output_directory,
-            font=("Arial", 9, "bold"),
+            font=("Arial", 9),
             fg="#000",
             anchor="w"
         )
@@ -478,11 +473,19 @@ class PDFCombinerApp:
         added_count = 0
         duplicate_count = 0
         duplicates = []
+        non_pdf_count = 0
+        non_pdf_files = []
         
         # Get existing paths for duplicate checking
         existing_paths = {entry['path'] for entry in self.pdf_files}
         
         for file in files:
+            # Check if file is a PDF
+            if not file.lower().endswith('.pdf'):
+                non_pdf_count += 1
+                non_pdf_files.append(Path(file).name)
+                continue
+            
             if file not in existing_paths:
                 # Create dict entry with path and default rotation/page range
                 self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All'})
@@ -508,6 +511,14 @@ class PDFCombinerApp:
         # Save settings if files were added
         if added_count > 0:
             self._save_settings()
+        
+        # Show warning if non-PDF files were attempted
+        if non_pdf_count > 0:
+            non_pdf_text = "\n".join(f"  • {file}" for file in non_pdf_files)
+            messagebox.showwarning(
+                "Invalid Files",
+                f"The following file(s) are not PDF files and were not added:\n\n{non_pdf_text}"
+            )
         
         # Show warning if duplicates were attempted
         if duplicate_count > 0:
@@ -1047,15 +1058,6 @@ class PDFCombinerApp:
         else:
             self.combine_button.config(state=tk.DISABLED)
         
-        # Enable/disable sort buttons (need at least 2 files to sort)
-        if len(self.pdf_files) >= 2:
-            self.sort_name_button.config(state=tk.NORMAL)
-            self.sort_size_button.config(state=tk.NORMAL)
-            self.sort_date_button.config(state=tk.NORMAL)
-        else:
-            self.sort_name_button.config(state=tk.DISABLED)
-            self.sort_size_button.config(state=tk.DISABLED)
-            self.sort_date_button.config(state=tk.DISABLED)
         
         # Enable/disable Clear All button (needs at least 1 file)
         if len(self.pdf_files) >= 1:
@@ -1152,7 +1154,7 @@ class PDFCombinerApp:
         pass
 
     def on_sort_clicked(self, key: str):
-        """Handle sort button clicks. Clicking the same key toggles reverse; clicking a new key sets ascending."""
+        """Handle sort header clicks. Clicking the same key toggles reverse; clicking a new key sets ascending."""
         if self.sort_key == key:
             self.sort_reverse = not self.sort_reverse
         else:
@@ -1160,7 +1162,7 @@ class PDFCombinerApp:
             self.sort_reverse = False
 
         self.apply_sort()
-        self.update_sort_buttons()
+        self.update_header_labels()
 
     def apply_sort(self):
         """Sort `self.pdf_files` according to current sort_key and sort_reverse, then refresh listbox."""
@@ -1188,25 +1190,28 @@ class PDFCombinerApp:
         except Exception:
             pass
 
-    def update_sort_buttons(self):
-        """Update button labels to show sort direction for the active key."""
+
+
+    def update_header_labels(self):
+        """Update header labels to show sort direction for the active key."""
         up = '▲'
         down = '▼'
 
         # Reset labels
-        self.sort_name_button.config(text='Name')
-        self.sort_size_button.config(text='Size')
-        self.sort_date_button.config(text='Date')
+        self.filename_hdr.config(text='Filename')
+        self.size_hdr.config(text='File Size')
+        self.date_hdr.config(text='Date')
 
         if self.sort_key == 'name':
             arrow = down if self.sort_reverse else up
-            self.sort_name_button.config(text=f'Name {arrow}')
+            self.filename_hdr.config(text=f'Filename {arrow}')
         elif self.sort_key == 'size':
             arrow = down if self.sort_reverse else up
-            self.sort_size_button.config(text=f'Size {arrow}')
+            self.size_hdr.config(text=f'File Size {arrow}')
         elif self.sort_key == 'date':
             arrow = down if self.sort_reverse else up
-            self.sort_date_button.config(text=f'Date {arrow}')
+            self.date_hdr.config(text=f'Date {arrow}')
+    
     
     def browse_output_location(self):
         """Open directory browser to select output location"""
