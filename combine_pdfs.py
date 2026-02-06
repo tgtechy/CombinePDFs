@@ -13,7 +13,7 @@ import io
 import fitz  # PyMuPDF
 import threading
 
-__VERSION__ = "1.2.0"
+__VERSION__ = "1.2.1"
 
 class PDFCombinerApp:
     def __init__(self, root):
@@ -22,7 +22,7 @@ class PDFCombinerApp:
         
         # Center window horizontally and align to top
         window_width = 700
-        window_height = 610
+        window_height = 600
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -74,6 +74,7 @@ class PDFCombinerApp:
         self.pending_preview_index = None
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
+        self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert blank pages between files
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
         self.page_range_last_valid = {}  # Track last valid page range per index
@@ -89,38 +90,57 @@ class PDFCombinerApp:
         # Load saved settings
         self._load_settings()
         
-        # Frame for add button and preview checkbox
-        add_button_frame = tk.Frame(root)
-        add_button_frame.pack(padx=10, pady=(10, 5))
+        # Configure custom style for notebook tabs
+        style = ttk.Style()
+        style.theme_use('clam')  # Use clam theme as base for better customization
         
-        # Add files button
-        add_button = tk.Button(
-            add_button_frame,
-            text="Add PDFs to Combine...",
-            command=self.add_files,
-            width=25,
-            bg="#E0E0E0",
-            fg="black",
-            font=("Arial", 10)
-        )
-        add_button.pack(side=tk.LEFT, padx=(0, 10))
+        # Configure the notebook and tab appearance
+        style.configure('TNotebook', background='#E0E0E0', borderwidth=2, relief='solid')
+        style.configure('TNotebook.Tab', padding=[10, 4], font=('Arial', 10, 'bold'), background='#D0D0D0', foreground='#333333', focuscolor='#D0D0D0')
+        style.map('TNotebook.Tab', 
+                  background=[('selected', '#4A90E2'), ('active', '#5B9FE8')],
+                  foreground=[('selected', 'white'), ('active', 'white')],
+                  padding=[('selected', [10, 4])])
+        
+        # Configure Combobox style to match file list background
+        style.configure('TCombobox', fieldbackground='white', background='white', foreground='black', relief='flat', borderwidth=0)
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', 'white'), ('disabled', 'white')],
+                  background=[('readonly', 'white'), ('disabled', 'white')])
+        
+        # Create notebook (tabbed interface)
+        self.notebook = ttk.Notebook(root, style='TNotebook')
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # ===== INPUT TAB =====
+        input_frame = tk.Frame(self.notebook)
+        self.notebook.add(input_frame, text="Input")
+        
+        # Spacer to move content down by 25 pixels
+        spacer_frame = tk.Frame(input_frame, height=25)
+        spacer_frame.pack()
+        spacer_frame.pack_propagate(False)
+        
+        # Title and preview checkbox frame - same line
+        title_frame = tk.Frame(input_frame)
+        title_frame.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(5, 5))
+        
+        # Title above list
+        title_label = tk.Label(title_frame, text="List and Order of Files to Combine:", font=("Arial", 10, "bold"))
+        title_label.pack(side=tk.LEFT, anchor=tk.W)
         
         # Preview on hover checkbox
         preview_checkbox = tk.Checkbutton(
-            add_button_frame,
+            title_frame,
             text="Preview first page on hover",
             variable=self.preview_enabled,
-               command=self._on_preview_toggle,
+            command=self._on_preview_toggle,
             font=("Arial", 9)
         )
-        preview_checkbox.pack(side=tk.LEFT)
-        
-        # Title above list
-        title_label = tk.Label(root, text="List and Order of Files to Combine:", font=("Arial", 10, "bold"))
-        title_label.pack(anchor=tk.W, padx=10, pady=(5, 5))
+        preview_checkbox.pack(side=tk.RIGHT, padx=(10, 0))
         
         # Custom scrollable frame for file list with rotation controls
-        list_frame = tk.Frame(root)
+        list_frame = tk.Frame(input_frame)
         list_frame.pack(pady=(0, 10), padx=10, fill=tk.X)
         
         # Column headers using fixed-width labels
@@ -130,25 +150,25 @@ class PDFCombinerApp:
         hdr_font = ("Consolas", 8)
         # Numbering column header
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
-        num_hdr.pack(side=tk.LEFT)
+        num_hdr.pack(side=tk.LEFT, padx=(0, 2))
 
         # Filename header - clickable
-        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=58, anchor='w', relief=tk.RIDGE, bd=1)
+        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=58, anchor='w')
         self.filename_hdr.pack(side=tk.LEFT)
         self.filename_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('name'))
         self.filename_hdr.bind("<Enter>", lambda e: self.filename_hdr.config(cursor="hand2"))
         self.filename_hdr.bind("<Leave>", lambda e: self.filename_hdr.config(cursor="arrow"))
 
         # File Size header - clickable
-        self.size_hdr = tk.Label(header_frame, text="Size", font=hdr_font, bg="#E0E0E0", width=10, anchor='e', relief=tk.RIDGE, bd=1)
+        self.size_hdr = tk.Label(header_frame, text="Size", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
         self.size_hdr.pack(side=tk.LEFT)
         self.size_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('size'))
         self.size_hdr.bind("<Enter>", lambda e: self.size_hdr.config(cursor="hand2"))
         self.size_hdr.bind("<Leave>", lambda e: self.size_hdr.config(cursor="arrow"))
 
         # Date header - clickable
-        self.date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w', relief=tk.RIDGE, bd=1)
-        self.date_hdr.pack(side=tk.LEFT, padx=(6,0))
+        self.date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
+        self.date_hdr.pack(side=tk.LEFT)
         self.date_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('date'))
         self.date_hdr.bind("<Enter>", lambda e: self.date_hdr.config(cursor="hand2"))
         self.date_hdr.bind("<Leave>", lambda e: self.date_hdr.config(cursor="arrow"))
@@ -159,8 +179,8 @@ class PDFCombinerApp:
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
         
-        # Sub-frame for custom list frame and scrollbar (sized for ~8 rows)
-        listbox_scroll_frame = tk.Frame(list_frame, height=200)
+        # Sub-frame for custom list frame and scrollbar (sized for ~11 rows)
+        listbox_scroll_frame = tk.Frame(list_frame, height=270)
         listbox_scroll_frame.pack(fill=tk.X)
         listbox_scroll_frame.pack_propagate(False)  # Prevent children from resizing frame
         
@@ -195,7 +215,14 @@ class PDFCombinerApp:
             frame_width = self.file_list_frame.winfo_reqwidth()
             frame_height = self.file_list_frame.winfo_reqheight()
             
-            new_region = (0, 0, max(frame_width, 1), max(frame_height, 1))
+            # Get canvas height to prevent scrolling above content
+            canvas_height = self.file_list_canvas.winfo_height()
+            if canvas_height <= 1:
+                canvas_height = 270  # Default height fallback
+            
+            # Ensure scrollregion is at least as tall as canvas to prevent blank lines when scrolling
+            scrollregion_height = max(frame_height, canvas_height)
+            new_region = (0, 0, max(frame_width, 1), scrollregion_height)
             
             if new_region != self.last_scrollregion:
                 self.last_scrollregion = new_region
@@ -222,12 +249,12 @@ class PDFCombinerApp:
         self.file_listbox = None  # No legacy listbox anymore
         
         # File count label
-        self.count_label = tk.Label(root, text="Files to combine: 0", font=("Arial", 9))
+        self.count_label = tk.Label(input_frame, text="Files to combine: 0", font=("Arial", 9))
         self.count_label.pack(pady=1)
         
         # Drag and drop instruction
         drag_drop_note = tk.Label(
-            root,
+            input_frame,
             text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview the first page. Double-click to open a file. Click column headers to sort.",
             font=("Arial", 8),
             fg="#666666"
@@ -238,45 +265,65 @@ class PDFCombinerApp:
         self.sort_key = None  # 'name' | 'size' | 'date'
         self.sort_reverse = False
         
-        # Button frame below listbox for Remove/Clear buttons
-        listbox_button_frame = tk.Frame(root)
-        listbox_button_frame.pack(pady=3)
+        # Button frame below listbox for file management buttons
+        listbox_button_frame = tk.Frame(input_frame)
+        listbox_button_frame.pack(pady=8)
+        
+        # Add files button
+        self.add_button = tk.Button(
+            listbox_button_frame,
+            text="Add PDFs to Combine...",
+            command=self.add_files,
+            width=18,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        self.add_button.grid(row=0, column=0, padx=5)
         
         # Remove selected button
         self.remove_button = tk.Button(
             listbox_button_frame,
             text="Remove Selected",
             command=self.remove_file,
-            width=15,
+            width=18,
             bg="#E0E0E0",
             fg="black",
             font=("Arial", 10),
             state=tk.DISABLED  # Start disabled since list is empty
         )
-        self.remove_button.grid(row=0, column=0, padx=5)
+        self.remove_button.grid(row=0, column=1, padx=5)
         
         # Clear all button
         self.clear_button = tk.Button(
             listbox_button_frame,
             text="Clear All",
             command=self.clear_files,
-            width=15,
+            width=18,
             bg="#E0E0E0",
             fg="black",
             font=("Arial", 10),
             state=tk.DISABLED  # Start disabled since list is empty
         )
-        self.clear_button.grid(row=0, column=1, padx=5)
+        self.clear_button.grid(row=0, column=2, padx=5)
+        
+        # ===== OUTPUT TAB =====
+        output_frame_main = tk.Frame(self.notebook)
+        self.notebook.add(output_frame_main, text="Output")
+        
+        # Padding frame for better spacing
+        output_content_frame = tk.Frame(output_frame_main)
+        output_content_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
         # Output settings frame
-        output_frame = tk.LabelFrame(root, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=8)
-        output_frame.pack(pady=5, padx=10, fill=tk.X)
+        output_frame = tk.LabelFrame(output_content_frame, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=8)
+        output_frame.pack(pady=5, fill=tk.X)
         
         # Filename frame
         filename_frame = tk.Frame(output_frame)
         filename_frame.pack(fill=tk.X, pady=5)
         
-        tk.Label(filename_frame, text="Filename of Combined PDF:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
+        tk.Label(filename_frame, text="Filename for combined PDF:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
         
         filename_entry = tk.Entry(filename_frame, textvariable=self.output_filename, font=("Arial", 9), width=30)
         filename_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
@@ -324,19 +371,29 @@ class PDFCombinerApp:
         # Pack the Browse button to the right of the save-location box
         browse_button.pack(side=tk.LEFT, padx=5)
         
-        # Bookmark options frame
-        bookmark_frame = tk.Frame(root)
-        bookmark_frame.pack(pady=(5, 0), padx=10)
-        
+        # Options frame
+        options_frame = tk.LabelFrame(output_content_frame, text="Options", font=("Arial", 9, "bold"))
+        options_frame.pack(pady=(5, 0), padx=0, fill=tk.X)
+
         bookmark_checkbox = tk.Checkbutton(
-            bookmark_frame,
-            text="Add filename bookmarks to combined PDF",
+            options_frame,
+            text="Add filename bookmarks to the combined PDF",
             variable=self.add_filename_bookmarks,
             command=self._save_settings,
             font=("Arial", 9)
         )
-        bookmark_checkbox.pack()
+        bookmark_checkbox.pack(anchor="w", padx=8, pady=(4, 2))
+
+        blank_pages_checkbox = tk.Checkbutton(
+            options_frame,
+            text="Insert blank page between files",
+            variable=self.insert_blank_pages,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        blank_pages_checkbox.pack(anchor="w", padx=8, pady=(0, 4))
         
+        # ===== BOTTOM SECTION (Outside tabs) =====
         # Status bar frame
         status_frame = tk.Frame(root, bg="#E8E8E8", height=18)
         status_frame.pack(pady=0, padx=0, fill=tk.X, side=tk.BOTTOM)
@@ -428,6 +485,16 @@ class PDFCombinerApp:
             bg=bottom_frame.cget("bg")
         )
         version_label.place(relx=0.0, rely=0.5, anchor="w", x=5)
+        
+        # Set up tab change handler to maintain focus on add button
+        def on_tab_changed(event):
+            if self.notebook.index(self.notebook.select()) == 0:  # Input tab
+                self.add_button.focus_set()
+        
+        self.notebook.bind("<<NotebookTabChanged>>", on_tab_changed)
+        
+        # Set initial focus to add button
+        self.add_button.focus_set()
     
     # Helper methods for file dict access
     def get_file_path(self, file_entry: dict) -> str:
@@ -470,6 +537,10 @@ class PDFCombinerApp:
                 # Load add filename bookmarks state
                 if 'add_filename_bookmarks' in settings:
                     self.add_filename_bookmarks.set(settings['add_filename_bookmarks'])
+                
+                # Load insert blank pages state
+                if 'insert_blank_pages' in settings:
+                    self.insert_blank_pages.set(settings['insert_blank_pages'])
         except Exception:
             # If loading fails, just use defaults
             pass
@@ -484,7 +555,8 @@ class PDFCombinerApp:
                 'output_directory': self.output_directory,
                 'add_files_directory': self.add_files_directory,
                 'preview_enabled': self.preview_enabled.get(),
-                'add_filename_bookmarks': self.add_filename_bookmarks.get()
+                'add_filename_bookmarks': self.add_filename_bookmarks.get(),
+                'insert_blank_pages': self.insert_blank_pages.get()
             }
             with open(self.config_file, 'w') as f:
                 json.dump(settings, f, indent=2)
@@ -713,8 +785,8 @@ class PDFCombinerApp:
             rotation = self.get_rotation(pdf_entry)
             
             # Create row frame - disable focus to prevent focus-change flicker
-            row_frame = tk.Frame(self.file_list_frame, bg="white", height=24, takefocus=0)
-            row_frame.pack(fill=tk.X, padx=0, pady=0)
+            row_frame = tk.Frame(self.file_list_frame, bg="white", takefocus=0)
+            row_frame.pack(fill=tk.X, padx=0, pady=0, anchor='nw')
             row_frame._index = i
             row_frame._is_selected = False
             
@@ -731,7 +803,7 @@ class PDFCombinerApp:
             
             # Number label
             num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 8), bg="white", width=4, anchor='e')
-            num_label.pack(side=tk.LEFT, padx=(0, 2))
+            num_label.pack(side=tk.LEFT, padx=(0, 2), pady=0, ipady=0, anchor='nw')
             num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
             num_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
@@ -741,7 +813,7 @@ class PDFCombinerApp:
             
             # Filename label
             filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", width=58, anchor='w', justify=tk.LEFT)
-            filename_label.pack(side=tk.LEFT)
+            filename_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
             filename_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
@@ -750,8 +822,8 @@ class PDFCombinerApp:
             filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # File size label
-            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", width=10, anchor='e')
-            size_label.pack(side=tk.LEFT)
+            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", width=10, anchor='w')
+            size_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
             size_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
@@ -761,7 +833,7 @@ class PDFCombinerApp:
             
             # Date label
             date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 8), bg="white", width=11, anchor='w')
-            date_label.pack(side=tk.LEFT, padx=(6, 0))
+            date_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
             date_label.bind("<ButtonRelease-1>", lambda e, idx=i: self.on_row_release(e, idx))
@@ -781,7 +853,7 @@ class PDFCombinerApp:
                 width=10,
                 font=("Consolas", 8)
             )
-            page_entry.pack(side=tk.LEFT, padx=(4, 0))
+            page_entry.pack(side=tk.LEFT, padx=(4, 0), pady=0, ipady=0, anchor='nw')
             
             def on_page_range_change(var, idx=i):
                 self.set_page_range(idx, var.get())
@@ -806,7 +878,7 @@ class PDFCombinerApp:
                 state="readonly",
                 font=("Consolas", 8)
             )
-            rotation_dropdown.pack(side=tk.LEFT, padx=2)
+            rotation_dropdown.pack(side=tk.LEFT, padx=2, pady=0, ipady=0, anchor='nw')
             
             # Bind rotation change
             def on_rotation_change(var, idx=i):
@@ -1411,7 +1483,7 @@ STATUS BAR
     def show_combine_summary(self, output_file, files_to_combine):
         """Show a summary of PDFs to combine before proceeding"""
         # Calculate total pages and file size
-        total_pages = 0
+        original_pages = 0
         total_size_bytes = 0
         
         try:
@@ -1425,7 +1497,7 @@ STATUS BAR
                     total_file_pages = len(pdf_reader.pages)
                     try:
                         page_indices = self._parse_page_range(page_range, total_file_pages)
-                        total_pages += len(page_indices)
+                        original_pages += len(page_indices)
                     except ValueError as e:
                         error_msg = (
                             f"{Path(file_path).name} (Total pages: {total_file_pages})\n\n"
@@ -1445,6 +1517,12 @@ STATUS BAR
             messagebox.showerror("Error", f"Could not read PDF information: {e}")
             return
         
+        # Calculate blank pages if enabled (inserted between files)
+        blank_pages = 0
+        if self.insert_blank_pages.get() and len(files_to_combine) > 1:
+            blank_pages = len(files_to_combine) - 1
+        total_pages = original_pages + blank_pages
+
         # Format file size
         if total_size_bytes < 1024:
             size_str = f"{total_size_bytes} B"
@@ -1456,16 +1534,16 @@ STATUS BAR
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("400x220")
+        summary_window.geometry("550x280")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
         
         # Center the summary window
         summary_window.update_idletasks()
-        x = (summary_window.winfo_screenwidth() // 2) - (400 // 2)
-        y = (summary_window.winfo_screenheight() // 2) - (220 // 2)
-        summary_window.geometry(f"400x220+{x}+{y}")
+        x = (summary_window.winfo_screenwidth() // 2) - (550 // 2)
+        y = (summary_window.winfo_screenheight() // 2) - (280 // 2)
+        summary_window.geometry(f"550x280+{x}+{y}")
         
         # Title
         title_label = tk.Label(
@@ -1511,9 +1589,13 @@ STATUS BAR
             anchor="w"
         )
         pages_label.pack(side=tk.LEFT)
+        if blank_pages > 0:
+            pages_text = f"  {total_pages} pages ({original_pages} from PDFs + {blank_pages} blank separator pages)"
+        else:
+            pages_text = f"  {total_pages} pages"
         pages_value = tk.Label(
             pages_row,
-            text=f"  {total_pages} pages",
+            text=pages_text,
             font=("Arial", 10, "bold"),
             fg="#0066CC",
             anchor="w"
@@ -1539,6 +1621,28 @@ STATUS BAR
             anchor="w"
         )
         size_value.pack(side=tk.LEFT)
+        
+        # Save path
+        path_row = tk.Frame(info_frame)
+        path_row.pack(fill=tk.X, pady=5)
+        path_label = tk.Label(
+            path_row,
+            text="Save to:",
+            font=("Arial", 10, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        path_label.pack(side=tk.LEFT, anchor="nw")
+        path_value = tk.Label(
+            path_row,
+            text=f"  {output_file}",
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w",
+            wraplength=420,
+            justify=tk.LEFT
+        )
+        path_value.pack(side=tk.LEFT, anchor="nw", fill=tk.X, expand=True)
         
         # Button frame
         button_frame = tk.Frame(summary_window)
@@ -1706,6 +1810,12 @@ STATUS BAR
                             if rotation != 0:
                                 page.rotate(rotation)
                             pdf_writer.add_page(page)
+                            current_page_num += 1
+                        
+                        # Insert blank page between files if enabled (but not after the last file)
+                        if self.insert_blank_pages.get() and i < len(files_to_combine) - 1:
+                            blank_page = pdf_writer.add_blank_page(width=pdf_reader.pages[0].mediabox.width if len(pdf_reader.pages) > 0 else 612,
+                                                                     height=pdf_reader.pages[0].mediabox.height if len(pdf_reader.pages) > 0 else 792)
                             current_page_num += 1
                 
                 # Check if cancelled before writing
