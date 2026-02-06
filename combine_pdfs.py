@@ -127,20 +127,20 @@ class PDFCombinerApp:
         header_frame = tk.Frame(list_frame, bg="#E0E0E0")
         header_frame.pack(anchor=tk.W, fill=tk.X)
 
-        hdr_font = ("Droid Sans Mono", 9)
+        hdr_font = ("Consolas", 8)
         # Numbering column header
         num_hdr = tk.Label(header_frame, text="#", font=hdr_font, bg="#E0E0E0", width=4, anchor='e')
         num_hdr.pack(side=tk.LEFT)
 
         # Filename header - clickable
-        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=42, anchor='w', relief=tk.RIDGE, bd=1)
+        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=58, anchor='w', relief=tk.RIDGE, bd=1)
         self.filename_hdr.pack(side=tk.LEFT)
         self.filename_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('name'))
         self.filename_hdr.bind("<Enter>", lambda e: self.filename_hdr.config(cursor="hand2"))
         self.filename_hdr.bind("<Leave>", lambda e: self.filename_hdr.config(cursor="arrow"))
 
         # File Size header - clickable
-        self.size_hdr = tk.Label(header_frame, text="File Size", font=hdr_font, bg="#E0E0E0", width=12, anchor='e', relief=tk.RIDGE, bd=1)
+        self.size_hdr = tk.Label(header_frame, text="Size", font=hdr_font, bg="#E0E0E0", width=10, anchor='e', relief=tk.RIDGE, bd=1)
         self.size_hdr.pack(side=tk.LEFT)
         self.size_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('size'))
         self.size_hdr.bind("<Enter>", lambda e: self.size_hdr.config(cursor="hand2"))
@@ -156,7 +156,7 @@ class PDFCombinerApp:
         pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
         pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
         
-        rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=7, anchor='c')
+        rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
         
         # Sub-frame for custom list frame and scrollbar (sized for ~8 rows)
@@ -680,7 +680,7 @@ class PDFCombinerApp:
             
             filename = Path(file_path).name
             # Truncate long filenames so columns remain aligned
-            max_filename_len = 45
+            max_filename_len = 55
             if len(filename) > max_filename_len:
                 filename = filename[: max_filename_len - 3] + "..."
 
@@ -730,7 +730,7 @@ class PDFCombinerApp:
             filename, size_str, date_str = self.get_file_info(file_path)
             
             # Number label
-            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Droid Sans Mono", 9), bg="white", width=4, anchor='e')
+            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 8), bg="white", width=4, anchor='e')
             num_label.pack(side=tk.LEFT, padx=(0, 2))
             num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -740,7 +740,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Droid Sans Mono", 9), bg="white", width=42, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", width=58, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT)
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -750,7 +750,7 @@ class PDFCombinerApp:
             filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # File size label
-            size_label = tk.Label(row_frame, text=size_str, font=("Droid Sans Mono", 9), bg="white", width=12, anchor='e')
+            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", width=10, anchor='e')
             size_label.pack(side=tk.LEFT)
             size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -760,7 +760,7 @@ class PDFCombinerApp:
             size_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Date label
-            date_label = tk.Label(row_frame, text=date_str, font=("Droid Sans Mono", 9), bg="white", width=11, anchor='w')
+            date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 8), bg="white", width=11, anchor='w')
             date_label.pack(side=tk.LEFT, padx=(6, 0))
             date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -779,7 +779,7 @@ class PDFCombinerApp:
                 row_frame,
                 textvariable=page_range_var,
                 width=10,
-                font=("Droid Sans Mono", 9)
+                font=("Consolas", 8)
             )
             page_entry.pack(side=tk.LEFT, padx=(4, 0))
             
@@ -802,9 +802,9 @@ class PDFCombinerApp:
                 row_frame,
                 textvariable=rotation_var,
                 values=["0", "90", "180", "270"],
-                width=5,
+                width=4,
                 state="readonly",
-                font=("Droid Sans Mono", 9)
+                font=("Consolas", 8)
             )
             rotation_dropdown.pack(side=tk.LEFT, padx=2)
             
@@ -1249,7 +1249,7 @@ class PDFCombinerApp:
 
         # Reset labels
         self.filename_hdr.config(text='Filename')
-        self.size_hdr.config(text='File Size')
+        self.size_hdr.config(text='Size')
         self.date_hdr.config(text='Date')
 
         if self.sort_key == 'name':
@@ -1257,7 +1257,7 @@ class PDFCombinerApp:
             self.filename_hdr.config(text=f'Filename {arrow}')
         elif self.sort_key == 'size':
             arrow = down if self.sort_reverse else up
-            self.size_hdr.config(text=f'File Size {arrow}')
+            self.size_hdr.config(text=f'Size {arrow}')
         elif self.sort_key == 'date':
             arrow = down if self.sort_reverse else up
             self.date_hdr.config(text=f'Date {arrow}')
