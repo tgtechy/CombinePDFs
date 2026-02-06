@@ -111,7 +111,7 @@ class PDFCombinerApp:
         self.reverse_vars = {}  # Map of index to tk.BooleanVar for page reversal
         
         # New advanced features
-        self.compression_quality = tk.StringVar(value="Medium")  # Compression level
+        self.compression_quality = tk.StringVar(value="None")  # Compression level
         self.enable_metadata = tk.BooleanVar(value=False)  # Enable metadata editing
         self.pdf_title = tk.StringVar(value="")  # Metadata: title
         self.pdf_author = tk.StringVar(value="")  # Metadata: author
