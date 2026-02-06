@@ -2751,12 +2751,12 @@ STATUS BAR
     def _compress_page(self, page, compression_level: str):
         """Apply compression to a PDF page based on compression level."""
         try:
-            # Compression mapping
+            # Compression mapping - JPEG quality values
             quality_map = {
                 "Low": 95,      # Minimal compression
                 "Medium": 75,   # Moderate compression
                 "High": 50,     # High compression
-                "Maximum": 25   # Maximum compression
+                "Maximum": 30   # Maximum compression
             }
             
             quality = quality_map.get(compression_level, 75)
@@ -2767,11 +2767,56 @@ STATUS BAR
                 for obj_name in xobjects:
                     obj = xobjects[obj_name]
                     if obj.get('/Subtype') == '/Image':
-                        # Apply compression by reducing image streams
                         try:
-                            if hasattr(obj, 'flate_encode'):
-                                obj.flate_encode()
-                        except:
+                            # Get image data
+                            if hasattr(obj, 'get_data'):
+                                image_data = obj.get_data()
+                                width = obj.get('/Width', 0)
+                                height = obj.get('/Height', 0)
+                                
+                                # Only compress if we have valid dimensions
+                                if width > 0 and height > 0:
+                                    # Try to load and recompress the image
+                                    try:
+                                        from PIL import Image
+                                        import io
+                                        
+                                        # Attempt to load image from data
+                                        img = Image.open(io.BytesIO(image_data))
+                                        
+                                        # Convert to RGB if necessary (for JPEG compression)
+                                        if img.mode in ('RGBA', 'LA', 'P'):
+                                            # Create white background for transparency
+                                            background = Image.new('RGB', img.size, (255, 255, 255))
+                                            if img.mode == 'P':
+                                                img = img.convert('RGBA')
+                                            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                                            img = background
+                                        elif img.mode != 'RGB':
+                                            img = img.convert('RGB')
+                                        
+                                        # Compress image to JPEG at specified quality
+                                        output = io.BytesIO()
+                                        img.save(output, format='JPEG', quality=quality, optimize=True)
+                                        compressed_data = output.getvalue()
+                                        
+                                        # Only replace if compression actually reduced size
+                                        if len(compressed_data) < len(image_data):
+                                            # Update the image object with compressed data
+                                            obj._data = compressed_data
+                                            obj[PyPDF2.generic.NameObject('/Filter')] = PyPDF2.generic.NameObject('/DCTDecode')
+                                            obj[PyPDF2.generic.NameObject('/ColorSpace')] = PyPDF2.generic.NameObject('/DeviceRGB')
+                                            if '/DecodeParms' in obj:
+                                                del obj['/DecodeParms']
+                                    except Exception:
+                                        # If PIL compression fails, try flate encoding
+                                        if hasattr(obj, 'flate_encode'):
+                                            obj.flate_encode()
+                            else:
+                                # Fallback to flate encoding
+                                if hasattr(obj, 'flate_encode'):
+                                    obj.flate_encode()
+                        except Exception:
                             pass
         except Exception:
             # If compression fails, continue without it
