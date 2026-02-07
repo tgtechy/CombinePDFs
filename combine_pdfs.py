@@ -105,6 +105,7 @@ class PDFCombinerApp:
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
         self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert breaker pages between files
+        self.insert_toc = tk.BooleanVar(value=False)  # Insert table of contents page
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
         self.page_range_last_valid = {}  # Track last valid page range per index
@@ -479,6 +480,7 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         blank_pages_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        ToolTip(blank_pages_checkbox, "Insert a page before each combined file\nwith the filename shown")
         
         # Page Options section
         page_options_row = tk.Frame(options_frame)
@@ -492,7 +494,7 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         scale_checkbox.pack(side=tk.LEFT, anchor="w")
-        ToolTip(scale_checkbox, "This option can produce unpredictable results when\ninput files have widely varying page sizes\nand orientations.")
+        ToolTip(scale_checkbox, "Pages will be resized to a uniform size.")
         
         blank_detect_checkbox = tk.Checkbutton(
             page_options_row,
@@ -502,11 +504,25 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         blank_detect_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
+        
+        # Table of Contents checkbox
+        toc_row = tk.Frame(options_frame)
+        toc_row.pack(fill=tk.X, pady=(6, 2), padx=8)
+        toc_checkbox = tk.Checkbutton(
+            toc_row,
+            text="Insert Table of Contents page",
+            variable=self.insert_toc,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        toc_checkbox.pack(side=tk.LEFT, anchor="w")
+        ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
         
         # Compression/Quality section
         compression_row = tk.Frame(options_frame)
         compression_row.pack(fill=tk.X, pady=(4, 2), padx=8)
-        tk.Label(compression_row, text="Compression/Quality:", font=("Arial", 9)).pack(side=tk.LEFT)
+        tk.Label(compression_row, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT)
         compression_combo = ttk.Combobox(
             compression_row,
             textvariable=self.compression_quality,
@@ -516,14 +532,14 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         compression_combo.pack(side=tk.LEFT, padx=5)
-        tk.Label(compression_row, text="(High = smaller file, lower quality)", font=("Arial", 8), fg="#666666").pack(side=tk.LEFT)
         compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
         compression_combo.bind("<FocusOut>", lambda e: self._validate_compression_quality())
+        ToolTip(compression_combo, "Compresses the combined PDF.\nHigher compression = Smaller filesize but lowers quality")
         
         # Metadata section
         metadata_checkbox = tk.Checkbutton(
             options_frame,
-            text="Add PDF metadata",
+            text="Add PDF metadata to combined file",
             variable=self.enable_metadata,
             command=self._toggle_metadata_fields,
             font=("Arial", 9)
@@ -797,6 +813,10 @@ class PDFCombinerApp:
                 if 'insert_blank_pages' in settings:
                     self.insert_blank_pages.set(settings['insert_blank_pages'])
                 
+                # Load insert TOC state
+                if 'insert_toc' in settings:
+                    self.insert_toc.set(settings['insert_toc'])
+                
                 # Load advanced settings
                 if 'compression_quality' in settings:
                     self.compression_quality.set(settings['compression_quality'])
@@ -854,6 +874,7 @@ class PDFCombinerApp:
                 'preview_enabled': self.preview_enabled.get(),
                 'add_filename_bookmarks': self.add_filename_bookmarks.get(),
                 'insert_blank_pages': self.insert_blank_pages.get(),
+                'insert_toc': self.insert_toc.get(),
                 'compression_quality': self.compression_quality.get(),
                 'last_metadata': self.last_metadata,
                 'pdf_title': self.pdf_title.get(),
@@ -2278,6 +2299,9 @@ Key Factors Affecting Performance:
                 # Track current page number for bookmarks
                 current_page_num = 0
                 
+                # Track file TOC entries (filename, starting page) for TOC generation
+                file_toc_entries = []
+                
                 # First pass: determine max dimensions if scaling is enabled
                 max_width = 0
                 max_height = 0
@@ -2295,11 +2319,15 @@ Key Factors Affecting Performance:
                             except ValueError:
                                 continue
                             
+                            # Determine if a specific page range was selected (not "All")
+                            has_explicit_range = (page_range and 
+                                                page_range.strip().lower() not in ["all", ""])
+                            
                             # Check dimensions of each page
                             for page_index in page_indices:
                                 page = pdf_reader.pages[page_index]
-                                # Skip blank pages if that option is enabled
-                                if self.delete_blank_pages.get() and self._is_page_blank(page):
+                                # Skip blank pages if that option is enabled AND no explicit range was selected
+                                if self.delete_blank_pages.get() and not has_explicit_range and self._is_page_blank(page):
                                     continue
                                 
                                 box = page.mediabox
@@ -2370,6 +2398,14 @@ Key Factors Affecting Performance:
                         if reverse:
                             page_indices = list(reversed(page_indices))
                         
+                        # Determine if a specific page range was selected (not "All")
+                        # Empty, None, or "all" means user selected all pages
+                        has_explicit_range = (page_range and 
+                                            page_range.strip().lower() not in ["all", ""])
+                        
+                        # Track file starting page for TOC if enabled (before adding breaker page)
+                        file_start_page = current_page_num
+                        
                         # Add bookmark at the start of this file's pages
                         parent_bookmark = None
                         if self.add_filename_bookmarks.get() and len(page_indices) > 0:
@@ -2386,8 +2422,9 @@ Key Factors Affecting Performance:
                         for page_index in page_indices:
                             page = pdf_reader.pages[page_index]
                             
-                            # Skip blank pages if enabled
-                            if self.delete_blank_pages.get():
+                            # Skip blank pages if enabled AND no explicit range was selected
+                            # This respects explicit page ranges while still filtering blanks for "All"
+                            if self.delete_blank_pages.get() and not has_explicit_range:
                                 if self._is_page_blank(page):
                                     continue
                             
@@ -2437,6 +2474,13 @@ Key Factors Affecting Performance:
                             blank_page = self._create_page_with_filename(next_filename, blank_width, blank_height)
                             pdf_writer.add_page(blank_page)
                             current_page_num += 1
+                        
+                        # Add file to TOC entries (after processing this file)
+                        if self.insert_toc.get() and len(page_indices) > 0:
+                            file_toc_entries.append({
+                                'filename': Path(file_path).name,
+                                'page': file_start_page
+                            })
                 
                 # Check if cancelled before writing
                 if cancel_flag['cancelled']:
@@ -2475,6 +2519,13 @@ Key Factors Affecting Performance:
                         for page in pdf_writer.pages:
                             self._compress_page(page, compression_level)
                     pdf_writer.write(out_file)
+                
+                # Insert TOC if enabled
+                if self.insert_toc.get() and len(file_toc_entries) > 0:
+                    self.root.after(0, lambda: progress_label.config(text="Inserting Table of Contents..."))
+                    self._insert_toc_page(output_file, file_toc_entries)
+                elif self.insert_toc.get():
+                    pass  # TOC checkbox enabled but no entries to add
                 
                 # Remember the output file
                 self.last_output_file = output_file
@@ -2675,13 +2726,34 @@ Key Factors Affecting Performance:
             messagebox.showerror("Error", f"Could not open file: {e}")
 
     def _is_page_blank(self, page) -> bool:
-        """Detect if a PDF page is blank by checking text content."""
+        """Detect if a PDF page is blank by checking both text and visual content."""
         try:
+            # Check for text content
             text = page.extract_text()
-            # Consider a page blank if it has no text or only whitespace
-            return not text or text.strip() == ""
-        except Exception:
-            # If we can't extract text, assume not blank to be safe
+            if text and text.strip():
+                return False  # Has text, not blank
+            
+            # Check for visual content (images, graphics, etc.)
+            # Check if page has resources with images or other content
+            if "/Resources" in page:
+                resources = page["/Resources"]
+                
+                # Check for images (XObjects)
+                if "/XObject" in resources:
+                    xobjects = resources["/XObject"]
+                    if xobjects and len(xobjects) > 0:
+                        return False  # Has images
+                
+                # Check for other content streams
+                if "/Font" in resources and len(resources["/Font"]) > 0:
+                    # Has fonts, might have invisible text or form fields
+                    return False
+            
+            # If no text and no visual resources, consider it blank
+            return True
+            
+        except Exception as e:
+            # If we can't analyze the page, assume not blank to be safe
             return False
     
     def _scale_page(self, page, target_width: float, target_height: float):
@@ -2691,25 +2763,30 @@ Key Factors Affecting Performance:
             current_width = float(box.width)
             current_height = float(box.height)
             
-            # Calculate scale factors
+            # Calculate scale factors to fit within target dimensions
             scale_x = target_width / current_width
             scale_y = target_height / current_height
             scale = min(scale_x, scale_y)  # Use smaller scale to fit within target
             
-            # Apply scaling
-            if scale != 1.0:
+            # Calculate new dimensions after scaling
+            new_width = current_width * scale
+            new_height = current_height * scale
+            
+            # Calculate centering offsets
+            x_offset = (target_width - new_width) / 2
+            y_offset = (target_height - new_height) / 2
+            
+            # Apply scaling and translation to center the content
+            if scale != 1.0 or x_offset != 0 or y_offset != 0:
+                # Scale and translate the content
                 page.scale_by(scale)
+                page.add_transform_matrix([1, 0, 0, 1, x_offset, y_offset])
                 
-                # Center the page in the target dimensions
-                new_width = current_width * scale
-                new_height = current_height * scale
-                x_offset = (target_width - new_width) / 2
-                y_offset = (target_height - new_height) / 2
-                
-                # Update mediabox to target size
-                page.mediabox.lower_left = (x_offset, y_offset)
-                page.mediabox.upper_right = (x_offset + new_width, y_offset + new_height)
-        except Exception:
+            # Set mediabox to the full target size (not cropped)
+            page.mediabox.lower_left = (0, 0)
+            page.mediabox.upper_right = (target_width, target_height)
+            
+        except Exception as e:
             # If scaling fails, leave page as is
             pass
     
@@ -2802,6 +2879,158 @@ Key Factors Affecting Performance:
             # This is a fallback - the page will have text but if it fails, at least we get a blank page
             blank_page = PyPDF2.PdfWriter().add_blank_page(width=float(width), height=float(height))
             return blank_page
+    
+    def _insert_toc_page(self, pdf_path: str, toc_entries: List[Dict]):
+        """Insert Table of Contents pages at the beginning of the PDF using PyMuPDF.
+        Creates multiple pages if needed to fit all entries."""
+        try:
+            # Open the PDF with PyMuPDF
+            doc = fitz.open(pdf_path)
+            
+            # Get the dimensions from the first page (or use letter size as default)
+            if len(doc) > 0:
+                first_page = doc[0]
+                page_width = first_page.rect.width
+                page_height = first_page.rect.height
+            else:
+                page_width = 612  # Letter width
+                page_height = 792  # Letter height
+            
+            # Set up fonts and positions
+            title_font_size = 24
+            entry_font_size = 11
+            margin_left = 72  # 1 inch
+            margin_top = 72   # 1 inch
+            margin_bottom = 72  # 1 inch
+            line_height = 20
+            
+            # Calculate how many entries fit per page
+            available_height = page_height - margin_top - margin_bottom - (title_font_size + 25)
+            entries_per_page = int(available_height / line_height)
+            
+            # Ensure at least 1 entry per page to avoid infinite loops
+            if entries_per_page < 1:
+                entries_per_page = 1
+            
+            # Split entries into pages
+            toc_pages_data = []
+            for i in range(0, len(toc_entries), entries_per_page):
+                chunk = toc_entries[i:i + entries_per_page]
+                page_number = len(toc_pages_data) + 1
+                toc_pages_data.append({
+                    'entries': chunk,
+                    'page_number': page_number,
+                    'total_pages': (len(toc_entries) + entries_per_page - 1) // entries_per_page
+                })
+            
+            # Insert TOC pages in reverse order (so they end up at the beginning)
+            for toc_page_idx in range(len(toc_pages_data) - 1, -1, -1):
+                toc_page_info = toc_pages_data[toc_page_idx]
+                
+                # Insert a new page at the beginning
+                toc_page = doc.new_page(0, width=page_width, height=page_height)
+                
+                # Add title
+                title_text = "Table of Contents"
+                if toc_page_info['total_pages'] > 1:
+                    title_text += f" (Page {toc_page_info['page_number']} of {toc_page_info['total_pages']})"
+                
+                toc_page.insert_text(
+                    (margin_left, margin_top + 20),
+                    title_text,
+                    fontsize=title_font_size,
+                    fontname="helv",
+                    color=(0, 0, 0)
+                )
+                
+                # Draw a line under the title
+                line_y = margin_top + title_font_size + 15
+                toc_page.draw_line(
+                    (margin_left, line_y),
+                    (page_width - margin_left, line_y),
+                    color=(0, 0, 0),
+                    width=1
+                )
+                
+                # Add TOC entries for this page
+                current_y = line_y + 25
+                max_filename_length = 80
+                
+                for entry in toc_page_info['entries']:
+                    filename = entry['filename']
+                    # +1 for each TOC page we're inserting, +1 for destination page offset
+                    page_num = entry['page'] + len(toc_pages_data) + 1
+                    
+                    # Truncate long filenames
+                    if len(filename) > max_filename_length:
+                        filename = filename[:max_filename_length-3] + "..."
+                    
+                    # Create text for entry
+                    entry_text = f"{filename}"
+                    page_text = f"Page {page_num}"
+                    
+                    # Position for the entry text
+                    text_rect = fitz.Rect(margin_left, current_y, page_width - 150, current_y + line_height)
+                    
+                    # Insert the filename text
+                    toc_page.insert_textbox(
+                        text_rect,
+                        entry_text,
+                        fontsize=entry_font_size,
+                        fontname="helv",
+                        color=(0, 0, 1),  # Blue color for clickable look
+                        align=fitz.TEXT_ALIGN_LEFT
+                    )
+                    
+                    # Insert the page number (right-aligned)
+                    page_rect = fitz.Rect(page_width - 150, current_y, page_width - margin_left, current_y + line_height)
+                    toc_page.insert_textbox(
+                        page_rect,
+                        page_text,
+                        fontsize=entry_font_size,
+                        fontname="helv",
+                        color=(0.3, 0.3, 0.3),
+                        align=fitz.TEXT_ALIGN_RIGHT
+                    )
+                    
+                    # Create clickable link to the destination page
+                    # Account for all TOC pages that will be inserted
+                    dest_page_index = entry['page'] + len(toc_pages_data)
+                    
+                    # Validate page index is within bounds
+                    if dest_page_index < len(doc):
+                        link_rect = fitz.Rect(margin_left, current_y, page_width - margin_left, current_y + line_height)
+                        link = {
+                            "kind": fitz.LINK_GOTO,
+                            "from": link_rect,
+                            "page": dest_page_index,
+                            "to": fitz.Point(0, 0),
+                            "zoom": 0
+                        }
+                        toc_page.insert_link(link)
+                    
+                    current_y += line_height
+            
+            # Save to a temporary file, then replace the original
+            import tempfile
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.pdf')
+            os.close(temp_fd)
+            
+            try:
+                doc.save(temp_path, garbage=4, deflate=True)
+                doc.close()
+                
+                # Replace the original file with the temp file
+                os.replace(temp_path, pdf_path)
+                
+            except Exception as save_error:
+                doc.close()
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                raise save_error
+            
+        except Exception as e:
+            print(f"Warning: Could not insert TOC page: {e}")
     
     def _compress_page(self, page, compression_level: str):
         """Apply compression to a PDF page based on compression level."""
