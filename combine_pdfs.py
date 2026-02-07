@@ -251,7 +251,7 @@ class PDFCombinerApp:
         
         pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
         pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
-        ToolTip(pages_hdr, "Specify page range to include from this PDF.\nExamples: '1-5', '1,3,5', '1-3,7-9'\nLeave blank to include all pages.")
+        ToolTip(pages_hdr, "Specify page range to include from this PDF.\nExamples: '1-5', '1,3,5', '1-3,7-9'\nLeave blank or type All to include all pages.")
         
         rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
@@ -747,6 +747,9 @@ class PDFCombinerApp:
         
         # Set initial focus to add button
         self.add_button.focus_set()
+        
+        # Initialize the file list display (shows placeholder if empty)
+        self.refresh_listbox()
     
     # Helper methods for file dict access
     def get_file_path(self, file_entry: dict) -> str:
@@ -1195,6 +1198,24 @@ class PDFCombinerApp:
         
         # Update button states after clearing
         self.root.after_idle(self._update_button_states)
+        
+        # Show placeholder if list is empty
+        if len(self.pdf_files) == 0:
+            placeholder_frame = tk.Frame(self.file_list_frame, bg="white")
+            placeholder_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=40)
+            
+            placeholder_label = tk.Label(
+                placeholder_frame,
+                text='Click the "Add PDFs to Combine" button to get started',
+                font=("Arial", 11),
+                fg="#666666",
+                bg="white"
+            )
+            placeholder_label.pack()
+            
+            # Manually update canvas scrollregion after adding placeholder
+            self.root.after_idle(self.canvas_configure)
+            return
         
         for i, pdf_entry in enumerate(self.pdf_files):
             file_path = self.get_file_path(pdf_entry)
