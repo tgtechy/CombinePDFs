@@ -392,7 +392,7 @@ class PDFCombinerApp:
         # Load/Save List button
         self.load_save_button = tk.Button(
             listbox_button_frame,
-            text="Load/Save List",
+            text="Load/Save List..",
             command=self.show_load_save_dialog,
             width=18,
             bg="#E0E0E0",
@@ -510,7 +510,7 @@ class PDFCombinerApp:
         
         blank_detect_checkbox = tk.Checkbutton(
             page_options_row,
-            text="Ignore blank pages from source(s) when combining",
+            text="Ignore blank pages in source files when combining",
             variable=self.delete_blank_pages,
             command=self._save_settings,
             font=("Arial", 9)
