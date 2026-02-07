@@ -552,12 +552,12 @@ class PDFCombinerApp:
         tk.Label(title_author_row, text="Title:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.title_entry = tk.Entry(title_author_row, textvariable=self.pdf_title, font=("Arial", 9))
         self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
-        self.title_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        self.title_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
         
         tk.Label(title_author_row, text="Author:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.author_entry = tk.Entry(title_author_row, textvariable=self.pdf_author, font=("Arial", 9))
         self.author_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        self.author_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        self.author_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
         
         # Subject and Keywords on one line
         subject_keywords_row = tk.Frame(options_frame)
@@ -565,12 +565,12 @@ class PDFCombinerApp:
         tk.Label(subject_keywords_row, text="Subject:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.subject_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_subject, font=("Arial", 9))
         self.subject_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
-        self.subject_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        self.subject_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
         
         tk.Label(subject_keywords_row, text="Keywords:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.keywords_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_keywords, font=("Arial", 9))
         self.keywords_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        self.keywords_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        self.keywords_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
         
         # Initialize metadata field states
         self._toggle_metadata_fields()
@@ -920,18 +920,13 @@ class PDFCombinerApp:
                 except Exception:
                     pass
         else:
-            # Save current values before clearing
+            # Save current values to last_metadata (keep displaying but grayed out)
             self.last_metadata = {
                 'title': self.pdf_title.get(),
                 'author': self.pdf_author.get(),
                 'subject': self.pdf_subject.get(),
                 'keywords': self.pdf_keywords.get()
             }
-            # Clear fields
-            self.pdf_title.set("")
-            self.pdf_author.set("")
-            self.pdf_subject.set("")
-            self.pdf_keywords.set("")
         
         self._save_settings()
     
@@ -943,6 +938,16 @@ class PDFCombinerApp:
             # Reset to default if invalid or empty
             self.compression_quality.set("Medium")
             self._save_settings()
+    
+    def _save_metadata_values(self):
+        """Update last_metadata with current field values and save settings"""
+        self.last_metadata = {
+            'title': self.pdf_title.get(),
+            'author': self.pdf_author.get(),
+            'subject': self.pdf_subject.get(),
+            'keywords': self.pdf_keywords.get()
+        }
+        self._save_settings()
     
     def _validate_rotation(self, index: int, var: tk.StringVar):
         """Ensure rotation dropdown always has a valid value"""
