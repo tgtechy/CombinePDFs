@@ -114,7 +114,7 @@ Key Factors Affecting Performance:
 
 If you would like to build the exe from scratch rather than download the .exe file in the releases section ...
 
-## Build Instructions
+## Build Instructions (if you don't want to use the provided pre-compiled .exe)
 
 This project is a Python/Tkinter app to combine PDF files with drag-and-drop reordering and many other options.
 
