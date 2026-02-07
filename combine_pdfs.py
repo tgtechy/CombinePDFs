@@ -2045,20 +2045,20 @@ class PDFCombinerApp:
     
     def show_help(self):
         """Display help dialog with program instructions"""
-        help_text = """ADDING FILES
+        help_text = """Adding Files
 • Click "Add PDFs to Combine..." to select PDF files to combine
 • Select one or multiple files from your computer using the file browser
 • Only PDF files can be added; other file types will be rejected
 • The same file cannot be added twice
 
-ORGANIZING FILES
+Organizing Files
 • Drag files up or down to change the order they'll be combined
 • Click a file to select it, Ctrl+Click on other files to select
   more than one file
 • Hover over a file row to see the full path in the status bar at
   the bottom of the screen
 
-SAVING AND LOADING LISTS
+Saving and Loading Lists
 • Click "Load/Save List" to manage your file lists
 • Save Current List: Export your current PDF list to a .pdflist file
   - Useful for reusing the same combination of files later
@@ -2069,12 +2069,12 @@ SAVING AND LOADING LISTS
 • Saved lists preserve file properties like rotation, page ranges,
   and reverse settings
 
-SORTING
+Sorting
 • Click column headers (Filename, File Size, Date) to sort
 • Click again to reverse the sort order (arrows show sort direction)
 • An up arrow (▲) means ascending, down arrow (▼) means descending
 
-FILE PROPERTIES
+File Properties
 • Page rotation: Set 0°, 90°, 180°, or 270° (clockwise) for each file
 • Pages: Specify which pages to include in the combined PDF using:
   - "All" or leave empty for all pages
@@ -2083,7 +2083,7 @@ FILE PROPERTIES
   - Multiple ranges: "1-3,5,7-9" (without the quotes)
 • Rev: Check to reverse the page order for that file
 
-OUTPUT SETTINGS
+Output Settings
 • Enter the desired filename for the combined PDF
 • Click "Browse" to choose where to save the combined PDF
 • Check "Add filename bookmarks" to create PDF bookmarks
@@ -2097,32 +2097,32 @@ OUTPUT SETTINGS
 • Select Compression/Quality level to reduce file size (higher
   compression = smaller file but lower quality)
 
-METADATA & WATERMARK
+Metadata & Watermark
 • Check "Add PDF metadata" to include Title, Author, Subject,
   and Keywords in the combined PDF
 • Check "Add watermark to pages" to overlay text on all pages
   - Set text, opacity, font size, and rotation angle
 
-COMBINING PDFs
+Combining PDFs
 • At least 2 files are required to combine
 • Click "Combine PDFs" to merge the files
 • Review the summary and click "Proceed"
 • The combined PDF will be created at your chosen location
 
-PREVIEW
+Preview
 • Hover over a file to see a thumbnail of its first page
 • Uncheck "Preview first page on hover" to disable previews
 
-STATUS BAR
+Status Bar
 • The bottom status bar shows the full path of the file
   you're currently hovering over or have selected
 
-PRACTICAL LIMITS & PERFORMANCE
+Practical Limits & Performance
 Memory Considerations:
 • Each PDF is loaded entirely into memory, so RAM can be a bottleneck
 • Try to keep individual PDF sizes under 1 GB for reliable performance
 
-Number of PDFs to Combine:
+Number of PDFS to Combine:
 • There is no hard-coded limit, but more than 100 files can be combined depending on their sizes
 • The app processes files sequentially, so it's mainly constrained by:
   - Total available RAM (all pages accumulate in a PdfWriter object before writing to disk)
@@ -2149,16 +2149,19 @@ Key Factors Affecting Performance:
         # Create help window
         help_window = tk.Toplevel(self.root)
         help_window.title("PDF Combiner - Help")
-        help_window.geometry("550x400")
+        help_window.geometry("550x500")
         help_window.transient(self.root)
         
-        # Position help window at top-center of screen
+        # Position help window at center of parent window
         help_window.update_idletasks()
         window_width = 550
-        window_height = 400
-        screen_width = help_window.winfo_screenwidth()
-        center_x = int((screen_width - window_width) / 2)
-        center_y = 0
+        window_height = 500
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        center_x = parent_x + (parent_width - window_width) // 2
+        center_y = parent_y + (parent_height - window_height) // 2
         help_window.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         
         # Create a frame with scrollbar
