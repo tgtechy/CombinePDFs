@@ -378,7 +378,7 @@ class PDFCombinerApp:
         # Clear all button
         self.clear_button = tk.Button(
             listbox_button_frame,
-            text="Clear All",
+            text="Remove All",
             command=self.clear_files,
             width=18,
             bg="#E0E0E0",
