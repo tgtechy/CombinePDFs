@@ -2375,7 +2375,7 @@ Key Factors Affecting Performance:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("550x420")
+        summary_window.geometry("550x350")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
@@ -2387,7 +2387,7 @@ Key Factors Affecting Performance:
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
         dialog_width = 550
-        dialog_height = 420
+        dialog_height = 390
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         summary_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
