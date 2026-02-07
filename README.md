@@ -35,6 +35,17 @@ ORGANIZING FILES
 • Hover over a file row to see the full path in the status bar at
   the bottom of the screen
 
+SAVING AND LOADING LISTS
+• Click "Load/Save List" to manage your file lists
+• Save Current List: Export your current PDF list to a .pdflist file
+  - Useful for reusing the same combination of files later
+• Load Previously Saved List: Import a previously saved list
+  - Choose to append files to your current list or replace it entirely
+  - Duplicate files are automatically skipped to prevent duplicates
+  - Shows count of valid PDFs loaded and any duplicate files skipped
+• Saved lists preserve file properties like rotation, page ranges,
+  and reverse settings
+
 SORTING
 • Click column headers (Filename, File Size, Date) to sort
 • Click again to reverse the sort order (arrows show sort direction)
@@ -74,10 +85,6 @@ COMBINING PDFs
 • Click "Combine PDFs" to merge the files
 • Review the summary and click "Proceed"
 • The combined PDF will be created at your chosen location
-
-SAVING LISTS
-• Click the Load/Save list buttons to load a previously
-  saved list or save the current list for reloading later
 
 PREVIEW
 • Hover over a file to see a thumbnail of its first page
