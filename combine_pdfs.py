@@ -429,7 +429,7 @@ class PDFCombinerApp:
         
         # Location frame (boxed to highlight save location)
         location_frame = tk.Frame(output_frame)
-        location_frame.pack(fill=tk.X, pady=2)
+        location_frame.pack(fill=tk.X, pady=3)
         
         tk.Label(location_frame, text="Save Location:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
         
@@ -451,8 +451,8 @@ class PDFCombinerApp:
             bg="#FAFAFA",
             highlightbackground="#BBBBBB",
             highlightthickness=1,
-            padx=6,
-            pady=4,
+            padx=2,
+            pady=1,
         )
         dir_box.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
@@ -1455,7 +1455,7 @@ class PDFCombinerApp:
             
             placeholder_label = tk.Label(
                 placeholder_frame,
-                text='Click the "Add PDFs to Combine" button to get started',
+                text='Click the "Add PDFs to Combine" button below to get started ...',
                 font=("Arial", 11, "bold"),
                 fg="red",
                 bg="white"
@@ -3185,7 +3185,7 @@ Key Factors Affecting Performance:
         """Show an info/success dialog centered on parent window"""
         info_window = tk.Toplevel(self.root)
         info_window.title(title)
-        info_window.geometry("450x180")
+        info_window.geometry("450x170")
         info_window.resizable(False, False)
         info_window.transient(self.root)
         info_window.grab_set()
@@ -3197,7 +3197,7 @@ Key Factors Affecting Performance:
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
         dialog_width = 450
-        dialog_height = 180
+        dialog_height = 170
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         info_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3208,7 +3208,7 @@ Key Factors Affecting Performance:
             text=title,
             font=("Arial", 12, "bold"),
             fg="#006600",
-            pady=10
+            pady=8
         )
         title_label.pack()
         
@@ -3222,11 +3222,11 @@ Key Factors Affecting Performance:
             justify=tk.LEFT,
             wraplength=400
         )
-        message_label.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        message_label.pack(pady=5, padx=20, fill=tk.BOTH, expand=True)
         
         # OK button
         button_frame = tk.Frame(info_window)
-        button_frame.pack(pady=10)
+        button_frame.pack(pady=(5, 10))
         
         ok_button = tk.Button(
             button_frame,
@@ -3933,6 +3933,19 @@ Key Factors Affecting Performance:
                     
                     current_y += line_height
             
+            # Shift existing bookmarks to account for inserted TOC pages
+            if toc_pages_data:
+                try:
+                    existing_toc = doc.get_toc()
+                    if existing_toc:
+                        page_offset = len(toc_pages_data)
+                        for entry in existing_toc:
+                            if len(entry) >= 3 and isinstance(entry[2], int):
+                                entry[2] += page_offset
+                        doc.set_toc(existing_toc)
+                except Exception:
+                    pass
+
             # Save to a temporary file, then replace the original
             import tempfile
             temp_fd, temp_path = tempfile.mkstemp(suffix='.pdf')
