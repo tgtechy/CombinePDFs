@@ -124,6 +124,8 @@ class PDFCombinerApp:
         self.watermark_opacity = tk.DoubleVar(value=0.3)  # Watermark opacity (0.1-0.9)
         self.watermark_font_size = tk.IntVar(value=50)  # Watermark font size
         self.watermark_rotation = tk.IntVar(value=45)  # Watermark rotation (0-360 degrees)
+        self.watermark_position = tk.StringVar(value="Center")  # Watermark position (top, center, bottom)
+        self.watermark_safe_mode = tk.BooleanVar(value=True)  # Safe Mode: auto-adjust watermark to prevent clipping
         self.delete_blank_pages = tk.BooleanVar(value=False)  # Remove blank pages
         
         # Store last used metadata values
@@ -410,12 +412,12 @@ class PDFCombinerApp:
         output_content_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
         # Output settings frame
-        output_frame = tk.LabelFrame(output_content_frame, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=8)
-        output_frame.pack(pady=5, fill=tk.X)
+        output_frame = tk.LabelFrame(output_content_frame, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=5)
+        output_frame.pack(pady=3, fill=tk.X)
         
         # Filename frame
         filename_frame = tk.Frame(output_frame)
-        filename_frame.pack(fill=tk.X, pady=5)
+        filename_frame.pack(fill=tk.X, pady=2)
         
         tk.Label(filename_frame, text="Filename for combined PDF:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
         
@@ -427,7 +429,7 @@ class PDFCombinerApp:
         
         # Location frame (boxed to highlight save location)
         location_frame = tk.Frame(output_frame)
-        location_frame.pack(fill=tk.X, pady=5)
+        location_frame.pack(fill=tk.X, pady=2)
         
         tk.Label(location_frame, text="Save Location:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
         
@@ -472,7 +474,7 @@ class PDFCombinerApp:
 
         # Bookmark and blank page checkboxes on same row
         checkbox_row = tk.Frame(options_frame)
-        checkbox_row.pack(fill=tk.X, pady=(4, 4), padx=8)
+        checkbox_row.pack(fill=tk.X, pady=(2, 2), padx=8)
         
         bookmark_checkbox = tk.Checkbutton(
             checkbox_row,
@@ -520,7 +522,7 @@ class PDFCombinerApp:
         
         # Table of Contents checkbox
         toc_row = tk.Frame(options_frame)
-        toc_row.pack(fill=tk.X, pady=(6, 2), padx=8)
+        toc_row.pack(fill=tk.X, pady=(3, 1), padx=8)
         toc_checkbox = tk.Checkbutton(
             toc_row,
             text="Insert Table of Contents page",
@@ -533,7 +535,7 @@ class PDFCombinerApp:
         
         # Compression/Quality section
         compression_row = tk.Frame(options_frame)
-        compression_row.pack(fill=tk.X, pady=(4, 2), padx=8)
+        compression_row.pack(fill=tk.X, pady=(2, 1), padx=8)
         tk.Label(compression_row, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT)
         compression_combo = ttk.Combobox(
             compression_row,
@@ -556,7 +558,7 @@ class PDFCombinerApp:
             command=self._toggle_metadata_fields,
             font=("Arial", 9)
         )
-        metadata_checkbox.pack(anchor="w", padx=8, pady=(6, 2))
+        metadata_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
         
         # Title and Author on one line
         title_author_row = tk.Frame(options_frame)
@@ -595,19 +597,31 @@ class PDFCombinerApp:
             command=self._toggle_watermark_fields,
             font=("Arial", 9)
         )
-        watermark_checkbox.pack(anchor="w", padx=8, pady=(6, 2))
+        watermark_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
         
-        # Watermark text
+        # Watermark text and position on same row
         watermark_text_row = tk.Frame(options_frame)
-        watermark_text_row.pack(fill=tk.X, pady=1, padx=8)
+        watermark_text_row.pack(fill=tk.X, pady=0, padx=8)
         tk.Label(watermark_text_row, text="Text:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.watermark_text_entry = tk.Entry(watermark_text_row, textvariable=self.watermark_text, font=("Arial", 9))
-        self.watermark_text_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.watermark_text_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
         self.watermark_text_entry.bind("<FocusOut>", lambda e: self._save_settings())
+        
+        tk.Label(watermark_text_row, text="Position:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
+        self.watermark_position_combo = ttk.Combobox(
+            watermark_text_row,
+            textvariable=self.watermark_position,
+            values=["Top", "Center", "Bottom"],
+            width=10,
+            state="readonly",
+            font=("Arial", 9)
+        )
+        self.watermark_position_combo.pack(side=tk.LEFT, padx=(5, 0))
+        self.watermark_position_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
         
         # Opacity and Font Size on one line
         watermark_sliders_row = tk.Frame(options_frame)
-        watermark_sliders_row.pack(fill=tk.X, pady=(1, 4), padx=8)
+        watermark_sliders_row.pack(fill=tk.X, pady=(1, 1), padx=8)
         
         tk.Label(watermark_sliders_row, text="Opacity:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.opacity_scale = tk.Scale(
@@ -653,6 +667,20 @@ class PDFCombinerApp:
             command=lambda e: self._save_settings()
         )
         self.rotation_scale.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Safe Mode checkbox
+        watermark_safe_mode_row = tk.Frame(options_frame)
+        watermark_safe_mode_row.pack(fill=tk.X, pady=(2, 2), padx=(28, 8))
+        
+        self.watermark_safe_mode_checkbox = tk.Checkbutton(
+            watermark_safe_mode_row,
+            text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping (recommended)",
+            variable=self.watermark_safe_mode,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        self.watermark_safe_mode_checkbox.pack(side=tk.LEFT, anchor="w")
+        ToolTip(self.watermark_safe_mode_checkbox, "When enabled, automatically reduces font size or adjusts\nposition to prevent watermark text from being clipped\nwhen combined with rotation and edge positioning.")
         
         # Initialize watermark field states
         self._toggle_watermark_fields()
@@ -871,6 +899,10 @@ class PDFCombinerApp:
                     self.watermark_font_size.set(settings['watermark_font_size'])
                 if 'watermark_rotation' in settings:
                     self.watermark_rotation.set(settings['watermark_rotation'])
+                if 'watermark_position' in settings:
+                    self.watermark_position.set(settings['watermark_position'])
+                if 'watermark_safe_mode' in settings:
+                    self.watermark_safe_mode.set(settings['watermark_safe_mode'])
                 if 'delete_blank_pages' in settings:
                     self.delete_blank_pages.set(settings['delete_blank_pages'])
         except Exception:
@@ -903,6 +935,8 @@ class PDFCombinerApp:
                 'watermark_opacity': self.watermark_opacity.get(),
                 'watermark_font_size': self.watermark_font_size.get(),
                 'watermark_rotation': self.watermark_rotation.get(),
+                'watermark_position': self.watermark_position.get(),
+                'watermark_safe_mode': self.watermark_safe_mode.get(),
                 'delete_blank_pages': self.delete_blank_pages.get()
             }
             with open(self.config_file, 'w') as f:
@@ -989,7 +1023,7 @@ class PDFCombinerApp:
                 self.output_filename.set(corrected_filename)
             else:
                 # For other issues, just show the error
-                messagebox.showerror("Invalid Filename", error_message)
+                self.show_error_dialog("Invalid Filename", error_message)
     
     def _toggle_watermark_fields(self):
         """Enable or disable watermark entry fields and sliders based on checkbox state"""
@@ -998,6 +1032,7 @@ class PDFCombinerApp:
         self.opacity_scale.config(state=state)
         self.fontsize_scale.config(state=state)
         self.rotation_scale.config(state=state)
+        self.watermark_safe_mode_checkbox.config(state=state)
         
         self._save_settings()
     
@@ -1286,10 +1321,10 @@ class PDFCombinerApp:
             with open(file_path, 'w') as f:
                 json.dump(list_data, f, indent=2)
             
-            messagebox.showinfo("Success", f"PDF list saved to:\n{file_path}")
+            self.show_info_dialog("Success", f"PDF list saved to:\n{file_path}")
             dialog.destroy()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save list:\n{str(e)}")
+            self.show_error_dialog("Error", f"Failed to save list:\n{str(e)}")
     
     def load_pdf_list(self, dialog):
         """Load a previously saved PDF list from a JSON file"""
@@ -1324,22 +1359,23 @@ class PDFCombinerApp:
                     missing_files.append(os.path.basename(file_path_to_check))
             
             if not valid_entries:
-                messagebox.showerror("Error", "No valid PDF files found in the saved list.")
+                self.show_error_dialog("Error", "No valid PDF files found in the saved list.")
                 return
             
             # Ask if user wants to replace or append
             if self.pdf_files:
-                result = messagebox.askyesnocancel(
-                    "Merge Lists?",
-                    f"Found {len(valid_entries)} valid PDFs in the saved list.\n\n'Yes' to append to current list\n'No' to replace current list\n'Cancel' to abort"
-                )
+                result = self.show_merge_lists_dialog(len(valid_entries))
                 if result is None:
                     return
                 elif not result:  # Replace
                     self.pdf_files.clear()
             
-            # Add the loaded entries
-            self.pdf_files.extend(valid_entries)
+            # Add the loaded entries, filtering out duplicates if appending
+            existing_paths = {entry['path'] for entry in self.pdf_files}
+            new_entries = [entry for entry in valid_entries if entry['path'] not in existing_paths]
+            duplicate_count = len(valid_entries) - len(new_entries)
+            
+            self.pdf_files.extend(new_entries)
             self.refresh_listbox()
             self.update_count()
             
@@ -1351,13 +1387,17 @@ class PDFCombinerApp:
                     f"The following files were not found and were skipped:\n\n{missing_text}"
                 )
             else:
-                messagebox.showinfo("Success", f"Loaded {len(valid_entries)} PDF files from the saved list.")
+                success_msg = f"Loaded {len(new_entries)} PDF files from the saved list."
+                if duplicate_count > 0:
+                    dup_word = "file" if duplicate_count == 1 else "files"
+                    success_msg += f"\n({duplicate_count} duplicate {dup_word} skipped)"
+                self.show_info_dialog("Success", success_msg)
             
             dialog.destroy()
         except json.JSONDecodeError:
-            messagebox.showerror("Error", "The file is not a valid PDF list file.")
+            self.show_error_dialog("Error", "The file is not a valid PDF list file.")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load list:\n{str(e)}")
+            self.show_error_dialog("Error", f"Failed to load list:\n{str(e)}")
     
     def get_file_info(self, file_path: str) -> tuple:
         """Get formatted file info. Returns tuple of (filename, filesize_str, date_str)"""
@@ -1792,7 +1832,7 @@ class PDFCombinerApp:
                 else:  # Linux
                     os.system(f'xdg-open "{file_path}"')
             except Exception as e:
-                messagebox.showerror("Error", f"Could not open file: {e}")
+                self.show_error_dialog("Error", f"Could not open file: {e}")
     
     def _update_row_visuals(self):
         """Update visual highlighting of selected rows - only updates rows that changed"""
@@ -2231,7 +2271,7 @@ Key Factors Affecting Performance:
     def combine_pdfs(self):
         """Combine selected PDF files"""
         if len(self.pdf_files) < 2:
-            messagebox.showerror("Error", "Please select at least 2 PDF files to combine.")
+            self.show_error_dialog("Error", "Please select at least 2 PDF files to combine.")
             return
         
         # Validate filename
@@ -2246,7 +2286,7 @@ Key Factors Affecting Performance:
                 self.output_filename.set(corrected_filename)
                 filename = corrected_filename
             else:
-                messagebox.showerror("Invalid Filename", error_message)
+                self.show_error_dialog("Invalid Filename", error_message)
                 return
         
         # Ensure filename ends with .pdf
@@ -2258,7 +2298,7 @@ Key Factors Affecting Performance:
 
         # If output exists, ask user whether to overwrite
         if os.path.exists(output_file):
-            if not messagebox.askyesno("Overwrite File", f"'{output_file}' already exists. Overwrite?"):
+            if not self.show_overwrite_dialog(output_file):
                 return
 
         # Get list of file entries to combine
@@ -2295,13 +2335,13 @@ Key Factors Affecting Performance:
                             f"  • Range: '1-10'\n"
                             f"  • Multiple ranges: '1-3,5,7-9'"
                         )
-                        messagebox.showerror("Invalid Page Range", error_msg)
+                        self.show_error_dialog("Invalid Page Range", error_msg)
                         return
                 
                 # Get file size
                 total_size_bytes += os.path.getsize(file_path)
         except Exception as e:
-            messagebox.showerror("Error", f"Could not read PDF information: {e}")
+            self.show_error_dialog("Error", f"Could not read PDF information: {e}")
             return
         
         # Calculate blank pages if enabled (inserted between files)
@@ -2321,16 +2361,22 @@ Key Factors Affecting Performance:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("550x280")
+        summary_window.geometry("550x420")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
         
-        # Center the summary window
+        # Center the summary window on parent window
         summary_window.update_idletasks()
-        x = (summary_window.winfo_screenwidth() // 2) - (550 // 2)
-        y = (summary_window.winfo_screenheight() // 2) - (280 // 2)
-        summary_window.geometry(f"550x280+{x}+{y}")
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 550
+        dialog_height = 420
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        summary_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
         
         # Title
         title_label = tk.Label(
@@ -2431,6 +2477,111 @@ Key Factors Affecting Performance:
         )
         path_value.pack(side=tk.LEFT, anchor="nw", fill=tk.X, expand=True)
         
+        # Compression level
+        compression_row = tk.Frame(info_frame)
+        compression_row.pack(fill=tk.X, pady=4)
+        compression_label = tk.Label(
+            compression_row,
+            text="Compression:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        compression_label.pack(side=tk.LEFT)
+        compression_value = tk.Label(
+            compression_row,
+            text=f"  {self.compression_quality.get()}",
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        compression_value.pack(side=tk.LEFT)
+        
+        # Bookmarks
+        bookmarks_row = tk.Frame(info_frame)
+        bookmarks_row.pack(fill=tk.X, pady=4)
+        bookmarks_label = tk.Label(
+            bookmarks_row,
+            text="Bookmarks:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        bookmarks_label.pack(side=tk.LEFT)
+        bookmarks_value = tk.Label(
+            bookmarks_row,
+            text=f"  {'Enabled' if self.add_filename_bookmarks.get() else 'Disabled'}",
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        bookmarks_value.pack(side=tk.LEFT)
+        
+        # Table of Contents
+        toc_row = tk.Frame(info_frame)
+        toc_row.pack(fill=tk.X, pady=4)
+        toc_label = tk.Label(
+            toc_row,
+            text="Table of Contents:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        toc_label.pack(side=tk.LEFT)
+        toc_value = tk.Label(
+            toc_row,
+            text=f"  {'Enabled' if self.insert_toc.get() else 'Disabled'}",
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        toc_value.pack(side=tk.LEFT)
+        
+        # Watermark
+        watermark_row = tk.Frame(info_frame)
+        watermark_row.pack(fill=tk.X, pady=4)
+        watermark_label = tk.Label(
+            watermark_row,
+            text="Watermark:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        watermark_label.pack(side=tk.LEFT)
+        if self.enable_watermark.get():
+            watermark_text = f"  Enabled - '{self.watermark_text.get()}' ({self.watermark_position.get().lower()})"
+        else:
+            watermark_text = "  Disabled"
+        watermark_value = tk.Label(
+            watermark_row,
+            text=watermark_text,
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w",
+            wraplength=400
+        )
+        watermark_value.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Page Scaling
+        scaling_row = tk.Frame(info_frame)
+        scaling_row.pack(fill=tk.X, pady=4)
+        scaling_label = tk.Label(
+            scaling_row,
+            text="Page Scaling:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        scaling_label.pack(side=tk.LEFT)
+        scaling_value = tk.Label(
+            scaling_row,
+            text=f"  {'Enabled' if self.enable_page_scaling.get() else 'Disabled'}",
+            font=("Arial", 9, "bold"),
+            fg="#0066CC",
+            anchor="w"
+        )
+        scaling_value.pack(side=tk.LEFT)
+        
         # Button frame
         button_frame = tk.Frame(summary_window)
         button_frame.pack(pady=10)
@@ -2472,11 +2623,17 @@ Key Factors Affecting Performance:
         progress_window.transient(self.root)
         progress_window.grab_set()
         
-        # Center the progress window
+        # Center the progress window on parent window
         progress_window.update_idletasks()
-        x = (progress_window.winfo_screenwidth() // 2) - (400 // 2)
-        y = (progress_window.winfo_screenheight() // 2) - (190 // 2)
-        progress_window.geometry(f"400x190+{x}+{y}")
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 400
+        dialog_height = 190
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        progress_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
         
         # Progress label
         progress_label = tk.Label(
@@ -2579,7 +2736,7 @@ Key Factors Affecting Performance:
                     if cancel_flag['cancelled']:
                         self.root.after(0, lambda: (
                             progress_window.destroy(),
-                            messagebox.showinfo("Cancelled", "PDF combining operation was cancelled.")
+                            self.show_info_dialog("Cancelled", "PDF combining operation was cancelled.")
                         ))
                         return
                     
@@ -2625,7 +2782,7 @@ Key Factors Affecting Performance:
                             )
                             self.root.after(0, lambda: (
                                 progress_window.destroy(),
-                                messagebox.showerror("Invalid Page Range", error_msg)
+                                self.show_error_dialog("Invalid Page Range", error_msg)
                             ))
                             return
                         
@@ -2673,7 +2830,7 @@ Key Factors Affecting Performance:
                             
                             # Add watermark if enabled
                             if self.enable_watermark.get() and self.watermark_text.get().strip():
-                                self._add_watermark(page, self.watermark_text.get(), self.watermark_opacity.get(), self.watermark_font_size.get(), self.watermark_rotation.get())
+                                self._add_watermark(page, self.watermark_text.get(), self.watermark_opacity.get(), self.watermark_font_size.get(), self.watermark_rotation.get(), self.watermark_position.get())
                             
                             pdf_writer.add_page(page)
                             current_page_num += 1
@@ -2721,7 +2878,7 @@ Key Factors Affecting Performance:
                 if cancel_flag['cancelled']:
                     self.root.after(0, lambda: (
                         progress_window.destroy(),
-                        messagebox.showinfo("Cancelled", "PDF combining operation was cancelled.")
+                        self.show_info_dialog("Cancelled", "PDF combining operation was cancelled.")
                     ))
                     return
                 
@@ -2775,19 +2932,19 @@ Key Factors Affecting Performance:
                 error_msg = f"File not found: {e}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
-                    messagebox.showerror("Error", error_msg)
+                    self.show_error_dialog("Error", error_msg)
                 ))
             except Exception as e:
                 error_msg = f"An error occurred: {str(e)}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
-                    messagebox.showerror("Error", error_msg)
+                    self.show_error_dialog("Error", error_msg)
                 ))
             except Exception as e:
                 error_msg = f"An error occurred: {str(e)}"
                 self.root.after(0, lambda: (
                     progress_window.destroy(),
-                    messagebox.showerror("Error", error_msg)
+                    self.show_error_dialog("Error", error_msg)
                 ))
         
         # Start the thread
@@ -2795,16 +2952,468 @@ Key Factors Affecting Performance:
         thread.start()
     
     def show_success_dialog(self, output_file):
-        """Show success dialog and ask to open the file"""
-        if messagebox.askyesno("Success", f"PDFs combined successfully!\n\nOpen the combined PDF?\n\n{output_file}"):
-            try:
-                if os.name == 'nt':
-                    os.startfile(output_file)
-                else:
-                    webbrowser.open_new(output_file)
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not open file: {e}")
-
+        """Show success dialog centered on parent and ask to open the file"""
+        # Create success window
+        success_window = tk.Toplevel(self.root)
+        success_window.title("Success")
+        success_window.geometry("500x200")
+        success_window.resizable(False, False)
+        success_window.transient(self.root)
+        success_window.grab_set()
+        
+        # Center the success window on parent window
+        success_window.update_idletasks()
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 500
+        dialog_height = 200
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        success_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        
+        # Title
+        title_label = tk.Label(
+            success_window,
+            text="✓ PDFs Combined Successfully!",
+            font=("Arial", 12, "bold"),
+            fg="#006600",
+            pady=10
+        )
+        title_label.pack()
+        
+        # Info frame
+        info_frame = tk.Frame(success_window)
+        info_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Message
+        message_label = tk.Label(
+            info_frame,
+            text="Your PDFs have been combined successfully.",
+            font=("Arial", 10),
+            fg="black",
+            anchor="w",
+            justify=tk.LEFT
+        )
+        message_label.pack(fill=tk.X, pady=5)
+        
+        # File path
+        path_label = tk.Label(
+            info_frame,
+            text="Combined PDF saved to:",
+            font=("Arial", 9, "bold"),
+            fg="black",
+            anchor="w"
+        )
+        path_label.pack(fill=tk.X, pady=(10, 2))
+        
+        path_value = tk.Label(
+            info_frame,
+            text=output_file,
+            font=("Arial", 9),
+            fg="#0066CC",
+            anchor="w",
+            wraplength=450,
+            justify=tk.LEFT
+        )
+        path_value.pack(fill=tk.X, padx=10)
+        
+        # Button frame
+        button_frame = tk.Frame(success_window)
+        button_frame.pack(pady=10)
+        
+        # Open button
+        open_button = tk.Button(
+            button_frame,
+            text="Open PDF",
+            command=lambda: (
+                success_window.destroy(),
+                self._open_success_file(output_file)
+            ),
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        open_button.grid(row=0, column=0, padx=5)
+        
+        # Close button
+        close_button = tk.Button(
+            button_frame,
+            text="Close",
+            command=success_window.destroy,
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        close_button.grid(row=0, column=1, padx=5)
+    
+    def _open_success_file(self, output_file):
+        """Helper to open the combined PDF file"""
+        try:
+            if os.name == 'nt':
+                os.startfile(output_file)
+            else:
+                webbrowser.open_new(output_file)
+        except Exception as e:
+            self.show_error_dialog("Error", f"Could not open file: {e}")
+    
+    def show_overwrite_dialog(self, output_file):
+        """Show overwrite dialog centered on parent window and return True/False"""
+        # Use a list to capture the result from the nested window
+        result = [False]
+        
+        # Create overwrite window
+        overwrite_window = tk.Toplevel(self.root)
+        overwrite_window.title("Overwrite File")
+        overwrite_window.geometry("480x220")
+        overwrite_window.resizable(False, False)
+        overwrite_window.transient(self.root)
+        overwrite_window.grab_set()
+        
+        # Center the overwrite window on parent window
+        overwrite_window.update_idletasks()
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 480
+        dialog_height = 220
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        overwrite_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        
+        # Title
+        title_label = tk.Label(
+            overwrite_window,
+            text="File Already Exists",
+            font=("Arial", 12, "bold"),
+            fg="black",
+            pady=10
+        )
+        title_label.pack()
+        
+        # Info frame
+        info_frame = tk.Frame(overwrite_window)
+        info_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Message
+        message_label = tk.Label(
+            info_frame,
+            text="The file already exists:",
+            font=("Arial", 10),
+            fg="black",
+            anchor="w",
+            justify=tk.LEFT
+        )
+        message_label.pack(fill=tk.X, pady=(0, 5))
+        
+        # File path
+        path_value = tk.Label(
+            info_frame,
+            text=output_file,
+            font=("Arial", 9),
+            fg="#0066CC",
+            anchor="w",
+            wraplength=430,
+            justify=tk.LEFT
+        )
+        path_value.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Question
+        question_label = tk.Label(
+            info_frame,
+            text="Do you want to overwrite it?",
+            font=("Arial", 10),
+            fg="black",
+            anchor="w"
+        )
+        question_label.pack(fill=tk.X, pady=(10, 0))
+        
+        # Button frame
+        button_frame = tk.Frame(overwrite_window)
+        button_frame.pack(pady=10)
+        
+        # Overwrite button
+        overwrite_button = tk.Button(
+            button_frame,
+            text="Overwrite",
+            command=lambda: (
+                result.__setitem__(0, True),
+                overwrite_window.destroy()
+            ),
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        overwrite_button.grid(row=0, column=0, padx=5)
+        
+        # Cancel button
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=overwrite_window.destroy,
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        cancel_button.grid(row=0, column=1, padx=5)
+        
+        # Wait for window to close and return result
+        self.root.wait_window(overwrite_window)
+        return result[0]
+    
+    def show_info_dialog(self, title, message):
+        """Show an info/success dialog centered on parent window"""
+        info_window = tk.Toplevel(self.root)
+        info_window.title(title)
+        info_window.geometry("450x180")
+        info_window.resizable(False, False)
+        info_window.transient(self.root)
+        info_window.grab_set()
+        
+        # Center the info window on parent window
+        info_window.update_idletasks()
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 450
+        dialog_height = 180
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        info_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        
+        # Title
+        title_label = tk.Label(
+            info_window,
+            text=title,
+            font=("Arial", 12, "bold"),
+            fg="#006600",
+            pady=10
+        )
+        title_label.pack()
+        
+        # Message
+        message_label = tk.Label(
+            info_window,
+            text=message,
+            font=("Arial", 10),
+            fg="black",
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=400
+        )
+        message_label.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # OK button
+        button_frame = tk.Frame(info_window)
+        button_frame.pack(pady=10)
+        
+        ok_button = tk.Button(
+            button_frame,
+            text="OK",
+            command=info_window.destroy,
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        ok_button.pack()
+        
+        self.root.wait_window(info_window)
+    
+    def show_error_dialog(self, title, message):
+        """Show an error dialog centered on parent window"""
+        error_window = tk.Toplevel(self.root)
+        error_window.title(title)
+        error_window.geometry("450x180")
+        error_window.resizable(False, False)
+        error_window.transient(self.root)
+        error_window.grab_set()
+        
+        # Center the error window on parent window
+        error_window.update_idletasks()
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 450
+        dialog_height = 180
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        error_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        
+        # Title
+        title_label = tk.Label(
+            error_window,
+            text=title,
+            font=("Arial", 12, "bold"),
+            fg="#CC0000",
+            pady=10
+        )
+        title_label.pack()
+        
+        # Message
+        message_label = tk.Label(
+            error_window,
+            text=message,
+            font=("Arial", 10),
+            fg="black",
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=400
+        )
+        message_label.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # OK button
+        button_frame = tk.Frame(error_window)
+        button_frame.pack(pady=10)
+        
+        ok_button = tk.Button(
+            button_frame,
+            text="OK",
+            command=error_window.destroy,
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        ok_button.pack()
+        
+        self.root.wait_window(error_window)
+    
+    def show_merge_lists_dialog(self, valid_entries_count):
+        """Show merge lists dialog centered on parent window. Returns True (append), False (replace), or None (cancel)"""
+        result = [None]  # Use list to capture result from nested window
+        
+        # Create merge dialog window
+        merge_window = tk.Toplevel(self.root)
+        merge_window.title("Merge Lists?")
+        merge_window.geometry("480x220")
+        merge_window.resizable(False, False)
+        merge_window.transient(self.root)
+        merge_window.grab_set()
+        
+        # Center the merge window on parent window
+        merge_window.update_idletasks()
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        dialog_width = 480
+        dialog_height = 220
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        merge_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        
+        # Title
+        title_label = tk.Label(
+            merge_window,
+            text="Merge PDF Lists?",
+            font=("Arial", 12, "bold"),
+            fg="black",
+            pady=10
+        )
+        title_label.pack()
+        
+        # Info frame
+        info_frame = tk.Frame(merge_window)
+        info_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Message
+        message_label = tk.Label(
+            info_frame,
+            text=f"Found {valid_entries_count} valid PDFs in the saved list.",
+            font=("Arial", 10),
+            fg="black",
+            anchor="w",
+            justify=tk.LEFT
+        )
+        message_label.pack(fill=tk.X, pady=(0, 10))
+        
+        # Options
+        options_label = tk.Label(
+            info_frame,
+            text="What would you like to do?",
+            font=("Arial", 9),
+            fg="#666666",
+            anchor="w"
+        )
+        options_label.pack(fill=tk.X, pady=(0, 5))
+        
+        option1_label = tk.Label(
+            info_frame,
+            text="• Append: Add to current list",
+            font=("Arial", 9),
+            fg="black",
+            anchor="w"
+        )
+        option1_label.pack(fill=tk.X, padx=10)
+        
+        option2_label = tk.Label(
+            info_frame,
+            text="• Replace: Clear current list first",
+            font=("Arial", 9),
+            fg="black",
+            anchor="w"
+        )
+        option2_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # Button frame
+        button_frame = tk.Frame(merge_window)
+        button_frame.pack(pady=10)
+        
+        # Append button
+        append_button = tk.Button(
+            button_frame,
+            text="Append",
+            command=lambda: (
+                result.__setitem__(0, True),
+                merge_window.destroy()
+            ),
+            width=12,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        append_button.grid(row=0, column=0, padx=3)
+        
+        # Replace button
+        replace_button = tk.Button(
+            button_frame,
+            text="Replace",
+            command=lambda: (
+                result.__setitem__(0, False),
+                merge_window.destroy()
+            ),
+            width=12,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        replace_button.grid(row=0, column=1, padx=3)
+        
+        # Cancel button
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=merge_window.destroy,
+            width=12,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        cancel_button.grid(row=0, column=2, padx=3)
+        
+        # Wait for window to close and return result
+        self.root.wait_window(merge_window)
+        return result[0]
+    
     def _parse_page_range(self, range_text: str, total_pages: int) -> List[int]:
         """Parse page range string into a list of zero-based page indices."""
         text = (range_text or "").strip().lower()
@@ -2935,7 +3544,7 @@ Key Factors Affecting Performance:
                 f"  • Range: '1-10'\n"
                 f"  • Multiple ranges: '1-3,5,7-9'"
             )
-            messagebox.showerror("Invalid Page Range", error_msg)
+            self.show_error_dialog("Invalid Page Range", error_msg)
             return
 
         self.page_range_last_valid[index] = normalized
@@ -2949,7 +3558,7 @@ Key Factors Affecting Performance:
             return
 
         if not os.path.exists(path):
-            messagebox.showerror("Error", f"File not found: {path}")
+            self.show_error_dialog("Error", f"File not found: {path}")
             return
 
         try:
@@ -2958,7 +3567,7 @@ Key Factors Affecting Performance:
             else:
                 webbrowser.open_new(path)
         except Exception as e:
-            messagebox.showerror("Error", f"Could not open file: {e}")
+            self.show_error_dialog("Error", f"Could not open file: {e}")
 
     def _is_page_blank(self, page) -> bool:
         """Detect if a PDF page is blank by checking both text and visual content."""
@@ -3025,27 +3634,91 @@ Key Factors Affecting Performance:
             # If scaling fails, leave page as is
             pass
     
-    def _add_watermark(self, page, text: str, opacity: float, font_size: int = 50, rotation: int = 45):
-        """Add text watermark to a PDF page."""
+    def _add_watermark(self, page, text: str, opacity: float, font_size: int = 50, rotation: int = 45, position: str = "center"):
+        """Add text watermark to a PDF page with optional Safe Mode to prevent clipping."""
         try:
             from reportlab.pdfgen import canvas
             from io import BytesIO
+            import math
             
             # Get page dimensions
             box = page.mediabox
             width = float(box.width)
             height = float(box.height)
             
+            # Normalize position string to lowercase for comparison
+            position = position.lower()
+            
+            # Calculate if watermark would be clipped (Safe Mode detection)
+            adjusted_font_size = font_size
+            adjusted_position = position
+            
+            if self.watermark_safe_mode.get():
+                # Estimate text width (approximate: 0.6 pixels per point per character)
+                text_width_approx = len(text) * font_size * 0.5
+                text_height_approx = font_size * 1.2
+                
+                # Calculate corners of rotated text bounding box
+                angle_rad = math.radians(rotation)
+                cos_a = abs(math.cos(angle_rad))
+                sin_a = abs(math.sin(angle_rad))
+                
+                # Rotated bounding box dimensions
+                rotated_width = text_width_approx * cos_a + text_height_approx * sin_a
+                rotated_height = text_width_approx * sin_a + text_height_approx * cos_a
+                
+                # Safe margins (padding from edges)
+                safe_margin = 40
+                
+                # Check if would clip at top/bottom positions
+                if position in ["top", "bottom"]:
+                    # At top/bottom, text is more likely to clip due to limited vertical space
+                    # Check if rotated height exceeds available space
+                    if position == "top" and rotated_height * 0.5 > height * 0.15 + safe_margin:
+                        # Would clip at top - either reduce font or move to center
+                        # Try to reduce font size first
+                        max_font = int(font_size * (height * 0.15 / (rotated_height * 0.5)) * 0.95)
+                        if max_font >= 10:
+                            adjusted_font_size = max(10, max_font)
+                        else:
+                            # Font too large, move to center (safest for rotation)
+                            adjusted_position = "center"
+                            
+                    elif position == "bottom" and rotated_height * 0.5 > height * 0.15 + safe_margin:
+                        # Would clip at bottom - either reduce font or move to center
+                        max_font = int(font_size * (height * 0.15 / (rotated_height * 0.5)) * 0.95)
+                        if max_font >= 10:
+                            adjusted_font_size = max(10, max_font)
+                        else:
+                            # Font too large, move to center
+                            adjusted_position = "center"
+                
+                # Check if rotated width exceeds page width
+                if rotated_width > width - safe_margin * 2 and adjusted_font_size > 10:
+                    # Reduce font size to fit horizontally
+                    max_font = int(adjusted_font_size * (width - safe_margin * 2) / rotated_width * 0.95)
+                    adjusted_font_size = max(10, max_font)
+            
             # Create watermark in memory
             packet = BytesIO()
             c = canvas.Canvas(packet, pagesize=(width, height))
             c.setFillAlpha(opacity)
-            c.setFont("Helvetica-Bold", font_size)
+            c.setFont("Helvetica-Bold", adjusted_font_size)
             c.setFillGray(0.5)
             
-            # Draw watermark diagonally
+            # Draw watermark at specified position
             c.saveState()
-            c.translate(width / 2, height / 2)
+            
+            if adjusted_position == "top":
+                # Position at top of page
+                c.translate(width / 2, height * 0.85)
+            elif adjusted_position == "bottom":
+                # Position at bottom of page
+                c.translate(width / 2, height * 0.15)
+            else:  # center (default)
+                # Position at center of page
+                c.translate(width / 2, height / 2)
+            
             c.rotate(rotation)
             c.drawCentredString(0, 0, text)
             c.restoreState()
