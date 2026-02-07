@@ -389,6 +389,18 @@ class PDFCombinerApp:
         )
         self.clear_button.grid(row=0, column=2, padx=5)
         
+        # Load/Save List button
+        self.load_save_button = tk.Button(
+            listbox_button_frame,
+            text="Load/Save List",
+            command=self.show_load_save_dialog,
+            width=18,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        self.load_save_button.grid(row=0, column=3, padx=5)
+        
         # ===== OUTPUT TAB =====
         output_frame_main = tk.Frame(self.notebook)
         self.notebook.add(output_frame_main, text="Output")
@@ -1150,6 +1162,203 @@ class PDFCombinerApp:
         # Also update button states when file count changes
         self._update_button_states()
     
+    def show_load_save_dialog(self):
+        """Show a dialog window for loading or saving PDF lists"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Load/Save PDF List")
+        dialog.geometry("400x300")
+        dialog.resizable(False, False)
+        dialog.withdraw()  # Hide initially to position before showing
+        
+        # Make dialog modal
+        dialog.transient(self.root)
+        
+        # Title
+        title_label = tk.Label(dialog, text="PDF List Management", font=("Arial", 12, "bold"))
+        title_label.pack(pady=(20, 10))
+        
+        # Description text
+        description_label = tk.Label(
+            dialog,
+            text="Save your current PDF list to reuse later,\nor load a previously saved list.",
+            font=("Arial", 9),
+            fg="#666666"
+        )
+        description_label.pack(pady=(0, 20))
+        
+        # Button frame
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=20, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Save list button
+        save_button = tk.Button(
+            button_frame,
+            text="Save Current List",
+            command=lambda: self.save_pdf_list(dialog),
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10),
+            height=4
+        )
+        save_button.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # Load list button
+        load_button = tk.Button(
+            button_frame,
+            text="Load Previously Saved List",
+            command=lambda: self.load_pdf_list(dialog),
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10),
+            height=4
+        )
+        load_button.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # Close button
+        close_button = tk.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10),
+            height=4
+        )
+        close_button.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # Configure grid to make buttons equal width and height
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.rowconfigure(0, weight=1)
+        button_frame.rowconfigure(1, weight=1)
+        button_frame.rowconfigure(2, weight=1)
+        
+        # Update to get accurate dimensions
+        dialog.update_idletasks()
+        
+        # Get parent window position and size
+        parent_x = self.root.winfo_x()
+        parent_y = self.root.winfo_y()
+        parent_width = self.root.winfo_width()
+        parent_height = self.root.winfo_height()
+        
+        # Get dialog size
+        dialog_width = dialog.winfo_width()
+        dialog_height = dialog.winfo_height()
+        
+        # Calculate center position relative to parent window
+        center_x = parent_x + (parent_width - dialog_width) // 2
+        center_y = parent_y + (parent_height - dialog_height) // 2
+        
+        dialog.geometry(f"+{center_x}+{center_y}")
+        
+        # Show dialog
+        dialog.deiconify()
+        dialog.grab_set()
+    
+    def save_pdf_list(self, dialog):
+        """Save the current list of PDFs to a JSON file"""
+        if not self.pdf_files:
+            messagebox.showwarning("Empty List", "There are no PDFs to save. Add some files first.")
+            return
+        
+        # Ask user for file location
+        file_path = filedialog.asksaveasfilename(
+            initialdir=self.add_files_directory,
+            filetypes=[("PDF List Files", "*.pdflist"), ("JSON Files", "*.json"), ("All Files", "*.*")],
+            defaultextension=".pdflist"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # Convert pdf_files to a serializable format
+            list_data = []
+            for pdf_entry in self.pdf_files:
+                list_data.append({
+                    'path': self.get_file_path(pdf_entry),
+                    'rotation': self.get_rotation(pdf_entry),
+                    'page_range': self.get_page_range(pdf_entry),
+                    'reverse': self.get_reverse(pdf_entry)
+                })
+            
+            # Write to JSON file
+            with open(file_path, 'w') as f:
+                json.dump(list_data, f, indent=2)
+            
+            messagebox.showinfo("Success", f"PDF list saved to:\n{file_path}")
+            dialog.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save list:\n{str(e)}")
+    
+    def load_pdf_list(self, dialog):
+        """Load a previously saved PDF list from a JSON file"""
+        # Ask user for file location
+        file_path = filedialog.askopenfilename(
+            initialdir=self.add_files_directory,
+            filetypes=[("PDF List Files", "*.pdflist"), ("JSON Files", "*.json"), ("All Files", "*.*")]
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # Read JSON file
+            with open(file_path, 'r') as f:
+                list_data = json.load(f)
+            
+            # Verify and create file entries
+            valid_entries = []
+            missing_files = []
+            
+            for entry in list_data:
+                file_path_to_check = entry.get('path')
+                if os.path.exists(file_path_to_check):
+                    valid_entries.append({
+                        'path': file_path_to_check,
+                        'rotation': entry.get('rotation', 0),
+                        'page_range': entry.get('page_range', 'All'),
+                        'reverse': entry.get('reverse', False)
+                    })
+                else:
+                    missing_files.append(os.path.basename(file_path_to_check))
+            
+            if not valid_entries:
+                messagebox.showerror("Error", "No valid PDF files found in the saved list.")
+                return
+            
+            # Ask if user wants to replace or append
+            if self.pdf_files:
+                result = messagebox.askyesnocancel(
+                    "Merge Lists?",
+                    f"Found {len(valid_entries)} valid PDFs in the saved list.\n\n'Yes' to append to current list\n'No' to replace current list\n'Cancel' to abort"
+                )
+                if result is None:
+                    return
+                elif not result:  # Replace
+                    self.pdf_files.clear()
+            
+            # Add the loaded entries
+            self.pdf_files.extend(valid_entries)
+            self.refresh_listbox()
+            self.update_count()
+            
+            # Show message about missing files if any
+            if missing_files:
+                missing_text = "\n".join(missing_files)
+                messagebox.showwarning(
+                    "Missing Files",
+                    f"The following files were not found and were skipped:\n\n{missing_text}"
+                )
+            else:
+                messagebox.showinfo("Success", f"Loaded {len(valid_entries)} PDF files from the saved list.")
+            
+            dialog.destroy()
+        except json.JSONDecodeError:
+            messagebox.showerror("Error", "The file is not a valid PDF list file.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load list:\n{str(e)}")
+    
     def get_file_info(self, file_path: str) -> tuple:
         """Get formatted file info. Returns tuple of (filename, filesize_str, date_str)"""
         try:
@@ -1207,8 +1416,8 @@ class PDFCombinerApp:
             placeholder_label = tk.Label(
                 placeholder_frame,
                 text='Click the "Add PDFs to Combine" button to get started',
-                font=("Arial", 11),
-                fg="#666666",
+                font=("Arial", 11, "bold"),
+                fg="red",
                 bg="white"
             )
             placeholder_label.pack()
