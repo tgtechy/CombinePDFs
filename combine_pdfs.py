@@ -105,6 +105,7 @@ class PDFCombinerApp:
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
         self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert breaker pages between files
+        self.breaker_pages_uniform_size = tk.BooleanVar(value=False)  # Make breaker pages uniform size
         self.insert_toc = tk.BooleanVar(value=False)  # Insert table of contents page
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
@@ -204,7 +205,7 @@ class PDFCombinerApp:
         title_frame.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(2, 5))
         
         # Title above list
-        title_label = tk.Label(title_frame, text="List and Order of Files to Combine:", font=("Arial", 10, "bold"))
+        title_label = tk.Label(title_frame, text="List and Order of PDFs and Images to Combine:", font=("Arial", 10, "bold"))
         title_label.pack(side=tk.LEFT, anchor=tk.W)
         
         # Preview on hover checkbox
@@ -339,7 +340,7 @@ class PDFCombinerApp:
         # Drag and drop instruction
         drag_drop_note = tk.Label(
             input_frame,
-            text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview the first page. Double-click to open a file. Click column headers to sort.",
+            text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview PDFs or images. Double-click to open a file. Click column headers to sort.",
             font=("Arial", 8),
             fg="#666666"
         )
@@ -356,7 +357,7 @@ class PDFCombinerApp:
         # Add files button
         self.add_button = tk.Button(
             listbox_button_frame,
-            text="Add PDFs to Combine...",
+            text="Add PDFs/Images...",
             command=self.add_files,
             width=18,
             bg="#E0E0E0",
@@ -409,11 +410,11 @@ class PDFCombinerApp:
         
         # Padding frame for better spacing
         output_content_frame = tk.Frame(output_frame_main)
-        output_content_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        output_content_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(10, 12))
         
         # Output settings frame
         output_frame = tk.LabelFrame(output_content_frame, text="Output Settings", font=("Arial", 10, "bold"), padx=10, pady=5)
-        output_frame.pack(pady=3, fill=tk.X)
+        output_frame.pack(pady=(0, 3), fill=tk.X)
         
         # Filename frame
         filename_frame = tk.Frame(output_frame)
@@ -470,31 +471,59 @@ class PDFCombinerApp:
         
         # Options frame
         options_frame = tk.LabelFrame(output_content_frame, text="Options", font=("Arial", 9, "bold"))
-        options_frame.pack(pady=(5, 0), padx=0, fill=tk.X)
+        options_frame.pack(pady=(0, 0), padx=0, fill=tk.X)
 
-        # Bookmark and blank page checkboxes on same row
+        # Bookmark and breaker page checkboxes on same row
         checkbox_row = tk.Frame(options_frame)
-        checkbox_row.pack(fill=tk.X, pady=(2, 2), padx=8)
+        checkbox_row.pack(fill=tk.X, pady=(0, 2), padx=8)
+        checkbox_row.columnconfigure(0, weight=0)
+        checkbox_row.columnconfigure(1, weight=1)
+        
+        bookmark_frame = tk.Frame(checkbox_row)
+        bookmark_frame.grid(row=0, column=0, sticky="nw")
         
         bookmark_checkbox = tk.Checkbutton(
-            checkbox_row,
+            bookmark_frame,
             text="Add filename bookmarks to the combined PDF",
             variable=self.add_filename_bookmarks,
             command=self._save_settings,
             font=("Arial", 9)
         )
-        bookmark_checkbox.pack(side=tk.LEFT, anchor="w")
+        bookmark_checkbox.pack(anchor="w")
         ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF. Existing bookmarks will be retained under\nthe filename bookmark.")
 
-        blank_pages_checkbox = tk.Checkbutton(
+        breaker_options_frame = tk.Frame(
             checkbox_row,
+            bg=checkbox_row.cget("bg"),
+            highlightbackground="#CFCFCF",
+            highlightthickness=1,
+            padx=6,
+            pady=4
+        )
+        breaker_options_frame.grid(row=0, column=1, sticky="nw", padx=(15, 0))
+
+        blank_pages_checkbox = tk.Checkbutton(
+            breaker_options_frame,
             text="Insert breaker pages between files",
             variable=self.insert_blank_pages,
-            command=self._save_settings,
+            command=self._toggle_breaker_page_options,
             font=("Arial", 9)
         )
-        blank_pages_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        blank_pages_checkbox.pack(anchor="w")
         ToolTip(blank_pages_checkbox, "Insert a page before each combined file\nwith the filename shown")
+        
+        # Suboption for breaker pages: uniform size
+        self.breaker_uniform_checkbox = tk.Checkbutton(
+            breaker_options_frame,
+            text="Make breaker pages a consistent size",
+            variable=self.breaker_pages_uniform_size,
+            command=self._save_settings,
+            font=("Arial", 9),
+            state="disabled"
+        )
+        self.breaker_uniform_checkbox.pack(anchor="w", padx=(18, 0))
+        ToolTip(self.breaker_uniform_checkbox, "When enabled, all breaker pages will be standard letter size.\nWhen disabled, breaker pages match the following content size.")
+        self._toggle_breaker_page_options()
         
         # Page Options section
         page_options_row = tk.Frame(options_frame)
@@ -520,7 +549,7 @@ class PDFCombinerApp:
         blank_detect_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
         ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
         
-        # Table of Contents checkbox
+        # Table of Contents checkbox + Compression on the same row
         toc_row = tk.Frame(options_frame)
         toc_row.pack(fill=tk.X, pady=(3, 1), padx=8)
         toc_checkbox = tk.Checkbutton(
@@ -532,13 +561,10 @@ class PDFCombinerApp:
         )
         toc_checkbox.pack(side=tk.LEFT, anchor="w")
         ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
-        
-        # Compression/Quality section
-        compression_row = tk.Frame(options_frame)
-        compression_row.pack(fill=tk.X, pady=(2, 1), padx=8)
-        tk.Label(compression_row, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT)
+
+        tk.Label(toc_row, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT, padx=(15, 0))
         compression_combo = ttk.Combobox(
-            compression_row,
+            toc_row,
             textvariable=self.compression_quality,
             values=["None", "Low", "Medium", "High", "Maximum"],
             width=12,
@@ -856,6 +882,10 @@ class PDFCombinerApp:
                 if 'insert_blank_pages' in settings:
                     self.insert_blank_pages.set(settings['insert_blank_pages'])
                 
+                # Load breaker pages uniform size state
+                if 'breaker_pages_uniform_size' in settings:
+                    self.breaker_pages_uniform_size.set(settings['breaker_pages_uniform_size'])
+                
                 # Load insert TOC state
                 if 'insert_toc' in settings:
                     self.insert_toc.set(settings['insert_toc'])
@@ -921,6 +951,7 @@ class PDFCombinerApp:
                 'preview_enabled': self.preview_enabled.get(),
                 'add_filename_bookmarks': self.add_filename_bookmarks.get(),
                 'insert_blank_pages': self.insert_blank_pages.get(),
+                'breaker_pages_uniform_size': self.breaker_pages_uniform_size.get(),
                 'insert_toc': self.insert_toc.get(),
                 'compression_quality': self.compression_quality.get(),
                 'last_metadata': self.last_metadata,
@@ -944,6 +975,12 @@ class PDFCombinerApp:
         except Exception:
             # Silently fail if we can't save settings
             pass
+    
+    def _toggle_breaker_page_options(self):
+        """Enable or disable breaker page suboptions based on checkbox state"""
+        state = tk.NORMAL if self.insert_blank_pages.get() else tk.DISABLED
+        self.breaker_uniform_checkbox.config(state=state)
+        self._save_settings()
     
     def _toggle_metadata_fields(self):
         """Enable or disable metadata entry fields based on checkbox state"""
@@ -1037,31 +1074,40 @@ class PDFCombinerApp:
         self._save_settings()
     
     def add_files(self):
-        """Open file dialog to select PDF files"""
+        """Open file dialog to select PDF and image files"""
         files = filedialog.askopenfilenames(
-            title="Select PDF files",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            title="Select PDF and image files to combine",
+            filetypes=[
+                ("PDF and Image files", "*.pdf *.jpg *.jpeg *.png *.bmp *.gif *.tiff *.tif"),
+                ("PDF files", "*.pdf"),
+                ("Image files", "*.jpg *.jpeg *.png *.bmp *.gif *.tiff *.tif"),
+                ("All files", "*.*")
+            ],
             initialdir=self.add_files_directory
         )
         
         added_count = 0
         duplicate_count = 0
         duplicates = []
-        non_pdf_count = 0
-        non_pdf_files = []
+        unsupported_count = 0
+        unsupported_files = []
         
         # Get existing paths for duplicate checking
         existing_paths = {entry['path'] for entry in self.pdf_files}
         
+        # Supported image and PDF extensions
+        supported_exts = ('.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif')
+        
         for file in files:
-            # Check if file is a PDF
-            if not file.lower().endswith('.pdf'):
-                non_pdf_count += 1
-                non_pdf_files.append(Path(file).name)
+            # Check if file has a supported extension
+            if not file.lower().endswith(supported_exts):
+                unsupported_count += 1
+                unsupported_files.append(Path(file).name)
                 continue
             
             if file not in existing_paths:
                 # Create dict entry with path and default rotation/page range/reverse
+                # Note: rotation applies to PDFs; images will be rotated after conversion
                 self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All', 'reverse': False})
                 added_count += 1
                 # Update the add files directory to the directory of the last selected file
@@ -1089,12 +1135,12 @@ class PDFCombinerApp:
         if added_count > 0:
             self._save_settings()
         
-        # Show warning if non-PDF files were attempted
-        if non_pdf_count > 0:
-            non_pdf_text = "\n".join(f"  • {file}" for file in non_pdf_files)
+        # Show warning if unsupported files were attempted
+        if unsupported_count > 0:
+            unsupported_text = "\n".join(f"  • {file}" for file in unsupported_files)
             messagebox.showwarning(
-                "Invalid Files",
-                f"The following file(s) are not PDF files and were not added:\n\n{non_pdf_text}"
+                "Unsupported Files",
+                f"The following file(s) are not PDF or image files and were not added:\n\n{unsupported_text}"
             )
         
         # Show warning if duplicates were attempted
@@ -1455,10 +1501,11 @@ class PDFCombinerApp:
             
             placeholder_label = tk.Label(
                 placeholder_frame,
-                text='Click the "Add PDFs to Combine" button below to get started ...',
+                text='Click the "Add PDFs/Images" button below to get started ...\nSupported formats: PDF, JPG, PNG, BMP, GIF, TIFF',
                 font=("Arial", 11, "bold"),
                 fg="red",
-                bg="white"
+                bg="white",
+                justify=tk.CENTER
             )
             placeholder_label.pack()
             
@@ -1533,11 +1580,17 @@ class PDFCombinerApp:
             self.page_range_vars[i] = page_range_var
             self.page_range_last_valid[i] = page_range
             
+            # Check if this is an image file
+            is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+            
             page_entry = tk.Entry(
                 row_frame,
                 textvariable=page_range_var,
                 width=10,
-                font=("Consolas", 8)
+                font=("Consolas", 8),
+                state="disabled" if is_image else "normal",
+                disabledforeground="#999999" if is_image else "black",
+                disabledbackground="#F5F5F5" if is_image else "white"
             )
             page_entry.pack(side=tk.LEFT, padx=(4, 0), pady=0, ipady=0, anchor='nw')
             
@@ -1594,7 +1647,9 @@ class PDFCombinerApp:
                 variable=reverse_var,
                 command=lambda idx=i, var=reverse_var: self.set_reverse(idx, var.get()),
                 bg="white",
-                takefocus=0
+                takefocus=0,
+                state="disabled" if is_image else "normal",
+                disabledforeground="#999999" if is_image else "black"
             )
             reverse_checkbox.pack(side=tk.LEFT, padx=2, pady=0, anchor='nw')
             
@@ -1896,7 +1951,7 @@ class PDFCombinerApp:
             self.clear_button.config(state=tk.DISABLED)
     
     def show_preview(self, index: int, x_root: int, y_root: int, file_path: str):
-        """Show a preview popup with PDF thumbnail"""
+        """Show a preview popup with PDF or image thumbnail"""
         self.hide_preview()
         
         try:
@@ -1909,7 +1964,7 @@ class PDFCombinerApp:
             main_frame = tk.Frame(self.preview_window, bg="white", relief=tk.SOLID, borderwidth=1)
             main_frame.pack(padx=5, pady=5)
             
-            # Get PDF info
+            # Get file info
             file_stat = os.stat(file_path)
             size_bytes = file_stat.st_size
             
@@ -1921,28 +1976,49 @@ class PDFCombinerApp:
             else:
                 size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
             
-            # Get page count
-            with open(file_path, 'rb') as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
-                page_count = len(pdf_reader.pages)
+            # Check if file is an image or PDF
+            is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
             
-            # Convert first page to image using PyMuPDF
-            try:
-                pdf_document = fitz.open(file_path)
-                if len(pdf_document) > 0:
-                    # Render first page at 200 DPI
-                    page = pdf_document[0]
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
-                    img_data = pix.tobytes("ppm")
-                    img = Image.open(io.BytesIO(img_data))
+            if is_image:
+                # Handle image file
+                try:
+                    img = Image.open(file_path)
+                    # Convert RGBA to RGB if needed for preview
+                    if img.mode == 'RGBA':
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        background.paste(img, mask=img.split()[-1])
+                        img = background
+                    elif img.mode not in ('RGB', 'L'):
+                        img = img.convert('RGB')
                     # Resize to fit preview window (max 180x240)
                     img.thumbnail((180, 240), Image.Resampling.LANCZOS)
-                else:
+                except Exception as e:
+                    # Fallback if image loading fails
                     img = Image.new('RGB', (180, 240), color='#F0F0F0')
-                pdf_document.close()
-            except Exception as e:
-                # Fallback if PyMuPDF fails
-                img = Image.new('RGB', (180, 240), color='#F0F0F0')
+            else:
+                # Handle PDF file
+                try:
+                    # Try to get page count for PDF
+                    with open(file_path, 'rb') as pdf_file:
+                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                        page_count = len(pdf_reader.pages)
+                    
+                    # Convert first page to image using PyMuPDF
+                    pdf_document = fitz.open(file_path)
+                    if len(pdf_document) > 0:
+                        # Render first page at 200 DPI
+                        page = pdf_document[0]
+                        pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                        img_data = pix.tobytes("ppm")
+                        img = Image.open(io.BytesIO(img_data))
+                        # Resize to fit preview window (max 180x240)
+                        img.thumbnail((180, 240), Image.Resampling.LANCZOS)
+                    else:
+                        img = Image.new('RGB', (180, 240), color='#F0F0F0')
+                    pdf_document.close()
+                except Exception as e:
+                    # Fallback if PyMuPDF fails
+                    img = Image.new('RGB', (180, 240), color='#F0F0F0')
             
             # Display the image using PhotoImage
             self.preview_photo = ImageTk.PhotoImage(img)
@@ -2046,9 +2122,10 @@ class PDFCombinerApp:
     def show_help(self):
         """Display help dialog with program instructions"""
         help_text = """Adding Files
-• Click "Add PDFs to Combine..." to select PDF files to combine
+• Click "Add PDFs/Images..." to select PDF and image files to combine
 • Select one or multiple files from your computer using the file browser
-• Only PDF files can be added; other file types will be rejected
+• Supported formats: PDF, JPG, JPEG, PNG, BMP, GIF, TIFF
+  - Images will be automatically converted to PDF during the merge
 • The same file cannot be added twice
 
 Organizing Files
@@ -2060,12 +2137,12 @@ Organizing Files
 
 Saving and Loading Lists
 • Click "Load/Save List" to manage your file lists
-• Save Current List: Export your current PDF list to a .pdflist file
+• Save Current List: Export your current file list to a .pdflist file
   - Useful for reusing the same combination of files later
 • Load Previously Saved List: Import a previously saved list
   - Choose to append files to your current list or replace it entirely
   - Duplicate files are automatically skipped to prevent duplicates
-  - Shows count of valid PDFs loaded and any duplicate files skipped
+  - Shows count of valid files loaded and any duplicate files skipped
 • Saved lists preserve file properties like rotation, page ranges,
   and reverse settings
 
@@ -2076,12 +2153,15 @@ Sorting
 
 File Properties
 • Page rotation: Set 0°, 90°, 180°, or 270° (clockwise) for each file
+  - For images, rotation is applied during conversion to PDF
 • Pages: Specify which pages to include in the combined PDF using:
   - "All" or leave empty for all pages
   - Single page: "5" (without the quotes)
   - Range: "1-10"    (without the quotes)
   - Multiple ranges: "1-3,5,7-9" (without the quotes)
+  - Note: For images, this applies to converted PDF pages
 • Rev: Check to reverse the page order for that file
+  - For single images, this has no effect (only 1 page)
 
 Output Settings
 • Enter the desired filename for the combined PDF
@@ -2103,14 +2183,16 @@ Metadata & Watermark
 • Check "Add watermark to pages" to overlay text on all pages
   - Set text, opacity, font size, and rotation angle
 
-Combining PDFs
+Combining PDFs and Images
 • At least 2 files are required to combine
+• Images and PDFs can be mixed in any order
+• Images will be converted to PDF automatically during the merge process
 • Click "Combine PDFs" to merge the files
 • Review the summary and click "Proceed"
 • The combined PDF will be created at your chosen location
 
 Preview
-• Hover over a file to see a thumbnail of its first page
+• Hover over a file to see a thumbnail of its first page (for PDFs) or the image itself
 • Uncheck "Preview first page on hover" to disable previews
 
 Status Bar
@@ -2332,30 +2414,39 @@ Key Factors Affecting Performance:
                 file_path = self.get_file_path(file_entry)
                 page_range = self.get_page_range(file_entry)
                 
-                # Count pages
-                with open(file_path, 'rb') as f:
-                    pdf_reader = PyPDF2.PdfReader(f)
-                    total_file_pages = len(pdf_reader.pages)
-                    try:
-                        page_indices = self._parse_page_range(page_range, total_file_pages)
-                        original_pages += len(page_indices)
-                    except ValueError as e:
-                        error_msg = (
-                            f"{Path(file_path).name} (Total pages: {total_file_pages})\n\n"
-                            f"Error: {e}\n\n"
-                            f"Valid formats:\n"
-                            f"  • All pages: 'All' or leave blank\n"
-                            f"  • Single page: '5'\n"
-                            f"  • Range: '1-10'\n"
-                            f"  • Multiple ranges: '1-3,5,7-9'"
-                        )
-                        self.show_error_dialog("Invalid Page Range", error_msg)
-                        return
+                # Check if this is an image file
+                is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+                
+                if is_image:
+                    # Images convert to 1-page PDFs
+                    total_file_pages = 1
+                    page_indices = [0]  # Single page at index 0
+                    original_pages += 1
+                else:
+                    # Count pages in PDF
+                    with open(file_path, 'rb') as f:
+                        pdf_reader = PyPDF2.PdfReader(f)
+                        total_file_pages = len(pdf_reader.pages)
+                        try:
+                            page_indices = self._parse_page_range(page_range, total_file_pages)
+                            original_pages += len(page_indices)
+                        except ValueError as e:
+                            error_msg = (
+                                f"{Path(file_path).name} (Total pages: {total_file_pages})\n\n"
+                                f"Error: {e}\n\n"
+                                f"Valid formats:\n"
+                                f"  • All pages: 'All' or leave blank\n"
+                                f"  • Single page: '5'\n"
+                                f"  • Range: '1-10'\n"
+                                f"  • Multiple ranges: '1-3,5,7-9'"
+                            )
+                            self.show_error_dialog("Invalid Page Range", error_msg)
+                            return
                 
                 # Get file size
                 total_size_bytes += os.path.getsize(file_path)
         except Exception as e:
-            self.show_error_dialog("Error", f"Could not read PDF information: {e}")
+            self.show_error_dialog("Error", f"Could not read file information: {e}")
             return
         
         # Calculate blank pages if enabled (inserted between files)
@@ -2698,6 +2789,7 @@ Key Factors Affecting Performance:
         # Run combine operation in thread
         def combine_thread():
             pdf_writer = None
+            temp_pdf_files = []  # Track temporary PDF files created from images for cleanup
             try:
                 # Create PDF writer object
                 pdf_writer = PyPDF2.PdfWriter()
@@ -2717,32 +2809,53 @@ Key Factors Affecting Performance:
                         rotation = self.get_rotation(file_entry)
                         page_range = self.get_page_range(file_entry)
                         
-                        with open(file_path, 'rb') as pdf_file:
-                            pdf_reader = PyPDF2.PdfReader(pdf_file)
-                            total_file_pages = len(pdf_reader.pages)
+                        # Check if this is an image file
+                        is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+                        
+                        if is_image:
+                            # Get image dimensions and convert to PDF points
                             try:
-                                page_indices = self._parse_page_range(page_range, total_file_pages)
-                            except ValueError:
-                                continue
-                            
-                            # Determine if a specific page range was selected (not "All")
-                            has_explicit_range = (page_range and 
-                                                page_range.strip().lower() not in ["all", ""])
-                            
-                            # Check dimensions of each page
-                            for page_index in page_indices:
-                                page = pdf_reader.pages[page_index]
-                                # Skip blank pages if that option is enabled AND no explicit range was selected
-                                if self.delete_blank_pages.get() and not has_explicit_range and self._is_page_blank(page):
-                                    continue
-                                
-                                box = page.mediabox
-                                width = float(box.width)
-                                height = float(box.height)
+                                img = Image.open(file_path)
+                                # Must use same DPI as _image_to_pdf() method
+                                dpi = 96
+                                width = (float(img.width) / dpi) * 72  # Convert pixels to points
+                                height = (float(img.height) / dpi) * 72
                                 if rotation in [90, 270]:
                                     width, height = height, width
                                 max_width = max(max_width, width)
                                 max_height = max(max_height, height)
+                            except Exception:
+                                # If we can't read image dimensions, use default letter size
+                                max_width = max(max_width, 612.0)
+                                max_height = max(max_height, 792.0)
+                        else:
+                            # Get PDF dimensions
+                            with open(file_path, 'rb') as pdf_file:
+                                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                total_file_pages = len(pdf_reader.pages)
+                                try:
+                                    page_indices = self._parse_page_range(page_range, total_file_pages)
+                                except ValueError:
+                                    continue
+                                
+                                # Determine if a specific page range was selected (not "All")
+                                has_explicit_range = (page_range and 
+                                                    page_range.strip().lower() not in ["all", ""])
+                                
+                                # Check dimensions of each page
+                                for page_index in page_indices:
+                                    page = pdf_reader.pages[page_index]
+                                    # Skip blank pages if that option is enabled AND no explicit range was selected
+                                    if self.delete_blank_pages.get() and not has_explicit_range and self._is_page_blank(page):
+                                        continue
+                                    
+                                    box = page.mediabox
+                                    width = float(box.width)
+                                    height = float(box.height)
+                                    if rotation in [90, 270]:
+                                        width, height = height, width
+                                    max_width = max(max_width, width)
+                                    max_height = max(max_height, height)
                 
                 # Second pass: process and add pages
                 for i, file_entry in enumerate(files_to_combine):
@@ -2766,8 +2879,30 @@ Key Factors Affecting Performance:
                         counter_label.config(text=f"{idx} of {len(files_to_combine)} files processed")
                     ))
                     
+                    # Convert image to PDF if necessary
+                    pdf_path = file_path
+                    is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+                    
+                    if is_image:
+                        # Convert image to PDF
+                        try:
+                            pdf_path = self._image_to_pdf(file_path)
+                            temp_pdf_files.append(pdf_path)  # Track for cleanup
+                        except Exception as e:
+                            # Cleanup any files created so far before showing error
+                            for temp_file in temp_pdf_files:
+                                try:
+                                    os.remove(temp_file)
+                                except:
+                                    pass
+                            self.root.after(0, lambda: (
+                                progress_window.destroy(),
+                                self.show_error_dialog("Image Conversion Error", f"Failed to convert image {Path(file_path).name}:\n{str(e)}")
+                            ))
+                            return
+                    
                     # Read and process the PDF
-                    with open(file_path, 'rb') as pdf_file:
+                    with open(pdf_path, 'rb') as pdf_file:
                         pdf_reader = PyPDF2.PdfReader(pdf_file)
                         total_file_pages = len(pdf_reader.pages)
                         
@@ -2857,24 +2992,39 @@ Key Factors Affecting Performance:
                             next_filename = Path(next_file_path).name
                             next_rotation = self.get_rotation(next_file_entry)
                             
-                            # Read next file to get its page dimensions
-                            try:
-                                with open(next_file_path, 'rb') as next_pdf_file:
-                                    next_pdf_reader = PyPDF2.PdfReader(next_pdf_file)
-                                    if len(next_pdf_reader.pages) > 0:
-                                        next_page = next_pdf_reader.pages[0]
-                                        blank_width = float(next_page.mediabox.width)
-                                        blank_height = float(next_page.mediabox.height)
+                            # Get breaker page dimensions
+                            blank_width = 612.0
+                            blank_height = 792.0
+                            
+                            # If not using uniform size, match the next file's dimensions
+                            if not self.breaker_pages_uniform_size.get():
+                                try:
+                                    next_is_image = next_file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+                                    
+                                    if next_is_image:
+                                        # Get image dimensions and convert to PDF points
+                                        next_img = Image.open(next_file_path)
+                                        # Must use same DPI as _image_to_pdf() method
+                                        dpi = 96
+                                        blank_width = (float(next_img.width) / dpi) * 72  # Convert pixels to points
+                                        blank_height = (float(next_img.height) / dpi) * 72
                                         # Swap dimensions if next file has 90 or 270 degree rotation
                                         if next_rotation in [90, 270]:
                                             blank_width, blank_height = blank_height, blank_width
                                     else:
-                                        blank_width = 612
-                                        blank_height = 792
-                            except:
-                                # Fallback to default letter size if we can't read the next file
-                                blank_width = 612
-                                blank_height = 792
+                                        # Get PDF dimensions
+                                        with open(next_file_path, 'rb') as next_pdf_file:
+                                            next_pdf_reader = PyPDF2.PdfReader(next_pdf_file)
+                                            if len(next_pdf_reader.pages) > 0:
+                                                next_page = next_pdf_reader.pages[0]
+                                                blank_width = float(next_page.mediabox.width)
+                                                blank_height = float(next_page.mediabox.height)
+                                                # Swap dimensions if next file has 90 or 270 degree rotation
+                                                if next_rotation in [90, 270]:
+                                                    blank_width, blank_height = blank_height, blank_width
+                                except:
+                                    # Fallback to default letter size if we can't read the next file
+                                    pass
                             
                             # Create blank page with filename text and add it
                             blank_page = self._create_page_with_filename(next_filename, blank_width, blank_height)
@@ -2960,6 +3110,13 @@ Key Factors Affecting Performance:
                     progress_window.destroy(),
                     self.show_error_dialog("Error", error_msg)
                 ))
+            finally:
+                # Clean up temporary PDF files created from images
+                for temp_file in temp_pdf_files:
+                    try:
+                        os.remove(temp_file)
+                    except:
+                        pass  # Silently ignore cleanup errors
         
         # Start the thread
         thread = threading.Thread(target=combine_thread, daemon=True)
@@ -3613,6 +3770,55 @@ Key Factors Affecting Performance:
         except Exception as e:
             # If we can't analyze the page, assume not blank to be safe
             return False
+    
+    def _image_to_pdf(self, image_path: str) -> str:
+        """Convert an image file to a temporary PDF and return the path to the PDF.
+        
+        Supports: JPG, PNG, BMP, GIF, TIFF, etc.
+        Returns the path to the temporary PDF file.
+        """
+        try:
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib.utils import ImageReader
+            import tempfile
+            
+            # Load the image
+            img = Image.open(image_path)
+            
+            # Convert RGBA to RGB if needed (JPEGs don't support transparency)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                # Create white background
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                background.paste(img, mask=img.split()[-1] if len(img.split()) > 3 else None)
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Get image dimensions
+            img_width, img_height = img.size
+            
+            # Create a temporary PDF file
+            temp_fd, temp_pdf_path = tempfile.mkstemp(suffix='.pdf')
+            os.close(temp_fd)  # Close the file descriptor, we'll use reportlab
+            
+            # Create PDF with same aspect ratio as image
+            # Use a reasonable DPI (96) to scale the image
+            dpi = 96
+            page_width = (img_width / dpi) * 72  # Convert pixels to points (72 DPI in PDF)
+            page_height = (img_height / dpi) * 72
+            
+            # Create canvas and add image
+            c = canvas.Canvas(temp_pdf_path, pagesize=(page_width, page_height))
+            c.drawImage(ImageReader(img), 0, 0, width=page_width, height=page_height)
+            c.save()
+            
+            return temp_pdf_path
+            
+        except Exception as e:
+            raise Exception(f"Failed to convert image to PDF: {str(e)}")
     
     def _scale_page(self, page, target_width: float, target_height: float):
         """Scale a page to fit target dimensions while maintaining aspect ratio."""
