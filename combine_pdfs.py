@@ -1511,6 +1511,8 @@ class PDFCombinerApp:
         for i, pdf_entry in enumerate(self.pdf_files):
             file_path = self.get_file_path(pdf_entry)
             rotation = self.get_rotation(pdf_entry)
+            is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
+            row_fg = "#0052CC" if is_image else "black"
             
             # Create row frame - disable focus to prevent focus-change flicker
             row_frame = tk.Frame(self.file_list_frame, bg="white", takefocus=0)
@@ -1530,7 +1532,7 @@ class PDFCombinerApp:
             filename, size_str, date_str = self.get_file_info(file_path)
             
             # Number label
-            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 8), bg="white", width=4, anchor='e')
+            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 8), bg="white", fg=row_fg, width=4, anchor='e')
             num_label.pack(side=tk.LEFT, padx=(0, 2), pady=0, ipady=0, anchor='nw')
             num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1540,7 +1542,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", width=54, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", fg=row_fg, width=54, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1550,7 +1552,7 @@ class PDFCombinerApp:
             filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # File size label
-            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", width=10, anchor='w')
+            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", fg=row_fg, width=10, anchor='w')
             size_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1560,7 +1562,7 @@ class PDFCombinerApp:
             size_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Date label
-            date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 8), bg="white", width=11, anchor='w')
+            date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 8), bg="white", fg=row_fg, width=11, anchor='w')
             date_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1574,9 +1576,6 @@ class PDFCombinerApp:
             page_range_var = tk.StringVar(value=page_range)
             self.page_range_vars[i] = page_range_var
             self.page_range_last_valid[i] = page_range
-            
-            # Check if this is an image file
-            is_image = file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
             
             page_entry = tk.Entry(
                 row_frame,
@@ -3966,19 +3965,64 @@ Key Factors Affecting Performance:
             width = float(width)
             height = float(height)
             
+            # Scale text and spacing based on page height (792 = letter size height)
+            scale_factor = height / 792.0
+            base_font_size = 14
+            scaled_font_size = int(base_font_size * scale_factor)
+            scaled_line_height = int(18 * scale_factor)
+            scaled_spacing_below_file = int(35 * scale_factor)
+            scaled_line_spacing = int(20 * scale_factor)
+            scaled_margin = int(50 * scale_factor)
+            scaled_line_width = max(1, int(2 * scale_factor))
+            
             # Create blank page with filename in the center
             packet = BytesIO()
             c = canvas.Canvas(packet, pagesize=(width, height))
-            c.setFont("Helvetica", 14)
-            c.setFillGray(0.3)
+            
+            # Wrap filename if longer than 25 characters
+            max_chars = 25
+            filename_lines = []
+            if len(filename) > max_chars:
+                # Split filename into chunks of max_chars
+                for i in range(0, len(filename), max_chars):
+                    filename_lines.append(filename[i:i + max_chars])
+            else:
+                filename_lines = [filename]
+            
+            # Calculate total height needed for text block
+            filename_height = len(filename_lines) * scaled_line_height
+            total_text_height = 40 * scale_factor + filename_height + 15 * scale_factor + 15 * scale_factor
             
             # Draw filename and "follows" text centered vertically
             vertical_center = height / 2
-            c.drawCentredString(width / 2, vertical_center + 40, "File")
-            c.setFont("Helvetica-Bold", 14)
-            c.drawCentredString(width / 2, vertical_center + 15, filename)
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(width / 2, vertical_center - 15, "follows")
+            current_y = vertical_center + (total_text_height / 2) - 10 * scale_factor
+            
+            c.setFont("Helvetica", scaled_font_size)
+            c.setFillGray(0.3)
+            c.drawCentredString(width / 2, current_y, "File")
+            
+            # Draw filename lines with horizontal lines above and below
+            c.setFont("Helvetica-Bold", scaled_font_size)
+            current_y -= scaled_spacing_below_file
+            
+            # Draw horizontal line above filename
+            c.setStrokeGray(0.3)
+            c.setLineWidth(scaled_line_width)
+            c.line(scaled_margin, current_y + scaled_line_spacing, width - scaled_margin, current_y + scaled_line_spacing)
+            
+            # Draw filename lines
+            for line in filename_lines:
+                c.drawCentredString(width / 2, current_y, line)
+                current_y -= scaled_line_height
+            
+            # Draw horizontal line below filename
+            c.line(scaled_margin, current_y + scaled_line_height - 10 * scale_factor, width - scaled_margin, current_y + scaled_line_height - 10 * scale_factor)
+            
+            # Draw "follows" text
+            c.setFont("Helvetica", scaled_font_size)
+            current_y -= 10 * scale_factor
+            c.drawCentredString(width / 2, current_y, "follows")
+            
             c.save()
             
             # Move to the beginning of the BytesIO buffer
