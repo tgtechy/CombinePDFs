@@ -107,7 +107,7 @@ class PDFCombinerApp:
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
         self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert breaker pages between files
         self.breaker_pages_uniform_size = tk.BooleanVar(value=False)  # Make breaker pages uniform size
-        self.insert_toc = tk.BooleanVar(value=False)  # Insert table of contents page
+        self.insert_toc = tk.BooleanVar(value=True)  # Insert table of contents page
         self.rotation_vars = {}  # Map of index to tk.StringVar for rotation dropdowns
         self.page_range_vars = {}  # Map of index to tk.StringVar for page ranges
         self.page_range_last_valid = {}  # Track last valid page range per index
