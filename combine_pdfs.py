@@ -52,7 +52,7 @@ class PDFCombinerApp:
         
         # Center window horizontally and align to top
         window_width = 700
-        window_height = 575
+        window_height = 580
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -205,7 +205,7 @@ class PDFCombinerApp:
         title_frame.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(2, 5))
         
         # Title above list
-        title_label = tk.Label(title_frame, text="List and Order of PDFs and Images to Combine:", font=("Arial", 10, "bold"))
+        title_label = tk.Label(title_frame, text="List and Order of PDFs/Images to Combine:", font=("Arial", 10, "bold"))
         title_label.pack(side=tk.LEFT, anchor=tk.W)
         
         # Preview on hover checkbox
@@ -570,6 +570,10 @@ class PDFCombinerApp:
         ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
         
         # Compression moved under TOC checkbox in left column
+
+        # Light separator above metadata section
+        metadata_separator = tk.Frame(options_frame, height=1, bg="#D0D0D0")
+        metadata_separator.pack(fill=tk.X, padx=8, pady=(6, 4))
         
         # Metadata section
         metadata_checkbox = tk.Checkbutton(
@@ -610,6 +614,10 @@ class PDFCombinerApp:
         # Initialize metadata field states
         self._toggle_metadata_fields()
         
+        # Light separator above watermark section
+        watermark_separator = tk.Frame(options_frame, height=1, bg="#D0D0D0")
+        watermark_separator.pack(fill=tk.X, padx=8, pady=(6, 4))
+
         # Watermark section
         watermark_checkbox = tk.Checkbutton(
             options_frame,
@@ -695,7 +703,7 @@ class PDFCombinerApp:
         
         self.watermark_safe_mode_checkbox = tk.Checkbutton(
             watermark_safe_mode_row,
-            text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping (recommended)",
+            text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping",
             variable=self.watermark_safe_mode,
             command=self._save_settings,
             font=("Arial", 9)
@@ -724,7 +732,7 @@ class PDFCombinerApp:
         self.status_label.pack(fill=tk.X, side=tk.LEFT)
         
         # Bottom button frame
-        bottom_frame = tk.Frame(root, height=40)
+        bottom_frame = tk.Frame(root, height=72)
         bottom_frame.pack(pady=5, padx=10, fill=tk.X)
         bottom_frame.pack_propagate(False)
         
@@ -773,31 +781,52 @@ class PDFCombinerApp:
             width=13
         )
         quit_button.pack(side=tk.LEFT, padx=5)
+
+        # Left-side donate link
+        left_info_frame = tk.Frame(bottom_frame, bg=bottom_frame.cget("bg"))
+        left_info_frame.place(relx=0.0, rely=0.5, anchor="w", x=5)
+
+        donate_label = tk.Label(
+            left_info_frame,
+            text="Like this? Donate!",
+            font=("Arial", 8, "underline"),
+            fg="#1A5FB4",
+            bg=bottom_frame.cget("bg"),
+            cursor="hand2"
+        )
+        donate_label.pack(anchor="w", pady=(0, 0))
+        donate_label.bind(
+            "<Button-1>",
+            lambda e: webbrowser.open_new("https://www.paypal.com/paypalme/tgtechdevshop")
+        )
         
-        # Copyright notice aligned to the right in the same row
+        # Right-side stack for version and copyright link
+        right_info_frame = tk.Frame(bottom_frame, bg=bottom_frame.cget("bg"))
+        right_info_frame.place(relx=1.0, rely=0.5, anchor="e", x=-5)
+
+        version_label = tk.Label(
+            right_info_frame,
+            text=f"v{__VERSION__}",
+            font=("Arial", 8),
+            fg="#606060",
+            bg=bottom_frame.cget("bg")
+        )
+        version_label.pack(anchor="w", pady=(0, 0))
+
         copyright_label = tk.Label(
-            bottom_frame,
+            right_info_frame,
             text="© 2026 tgtechy",
             font=("Arial", 8, "underline"),
             fg="#1A5FB4",
             bg=bottom_frame.cget("bg"),
             cursor="hand2"
         )
-        copyright_label.place(relx=1.0, rely=0.5, anchor="e", x=-5)
+        copyright_label.pack(anchor="w", pady=(0, 0))
         copyright_label.bind(
             "<Button-1>",
             lambda e: webbrowser.open_new("https://github.com/tgtechy/CombinePDFs")
         )
-        
-        # Version label aligned to the left
-        version_label = tk.Label(
-            bottom_frame,
-            text=f"v{__VERSION__}",
-            font=("Arial", 8),
-            fg="#606060",
-            bg=bottom_frame.cget("bg")
-        )
-        version_label.place(relx=0.0, rely=0.5, anchor="w", x=5)
+
         
         # Set up tab change handler to maintain focus on add button
         def on_tab_changed(event):
@@ -1492,7 +1521,7 @@ class PDFCombinerApp:
         # Show placeholder if list is empty
         if len(self.pdf_files) == 0:
             placeholder_frame = tk.Frame(self.file_list_frame, bg="white")
-            placeholder_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=40)
+            placeholder_frame.pack(fill=tk.X, expand=True, padx=20, pady=40)
             
             placeholder_label = tk.Label(
                 placeholder_frame,
