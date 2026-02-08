@@ -763,6 +763,13 @@ class PDFCombinerApp:
         # Initialize watermark field states
         self._toggle_watermark_fields()
         
+        # ===== INSTRUCTIONS TAB =====
+        instructions_frame = tk.Frame(self.notebook)
+        self.notebook.add(instructions_frame, text="Instructions")
+        
+        # Load plain text instructions
+        self._create_text_instructions_tab(instructions_frame)
+        
         # ===== BOTTOM SECTION (Outside tabs) =====
         # Status bar frame
         status_frame = tk.Frame(root, bg="#E8E8E8", height=18)
@@ -804,19 +811,6 @@ class PDFCombinerApp:
         self.combine_button.pack(side=tk.LEFT, padx=5)
         
         # (Removed: open-button replaced by a post-success dialog)
-        
-        # Help button
-        help_button = tk.Button(
-            center_frame,
-            text="Help",
-            command=self.show_help,
-            bg="#E0E0E0",
-            fg="black",
-            font=("Arial", 11),
-            height=1,
-            width=13
-        )
-        help_button.pack(side=tk.LEFT, padx=5)
         
         # Quit button
         quit_button = tk.Button(
@@ -2217,196 +2211,132 @@ class PDFCombinerApp:
             self.date_hdr.config(text=f'Date {arrow}')
     
     
-    def show_help(self):
-        """Display help dialog with program instructions"""
-        help_text = """Adding Files
-• Click "Add PDFs/Images..." to select PDF and image files to combine
-• Select one or multiple files from your computer using the file browser
-• Supported formats: PDF, JPG, JPEG, PNG, BMP, GIF, TIFF
-  - Images will be automatically converted to PDF during the merge
-• The same file cannot be added twice
-
-Organizing Files
-• Drag files up or down to change the order they'll be combined
-• Click a file to select it, Ctrl+Click on other files to select
-  more than one file
-• Hover over a file row to see the full path in the status bar at
-  the bottom of the screen
-
-Saving and Loading Lists
-• Click "Load/Save List" to manage your file lists
-• Save Current List: Export your current file list to a .pdflist file
-  - Useful for reusing the same combination of files later
-• Load Previously Saved List: Import a previously saved list
-  - Choose to append files to your current list or replace it entirely
-  - Duplicate files are automatically skipped to prevent duplicates
-  - Shows count of valid files loaded and any duplicate files skipped
-• Saved lists preserve file properties like rotation, page ranges,
-  and reverse settings
-
-Sorting
-• Click column headers (Filename, File Size, Date) to sort
-• Click again to reverse the sort order (arrows show sort direction)
-• An up arrow (▲) means ascending, down arrow (▼) means descending
-
-File Properties
-• Page rotation: Set 0°, 90°, 180°, or 270° (clockwise) for each file
-  - For images, rotation is applied during conversion to PDF
-• Pages: Specify which pages to include in the combined PDF using:
-  - "All" or leave empty for all pages
-  - Single page: "5" (without the quotes)
-  - Range: "1-10"    (without the quotes)
-  - Multiple ranges: "1-3,5,7-9" (without the quotes)
-  - Note: For images, this applies to converted PDF pages
-• Rev: Check to reverse the page order for that file
-  - For single images, this has no effect (only 1 page)
-
-Output Settings
-• Enter the desired filename for the combined PDF
-• Click "Browse" to choose where to save the combined PDF
-• Check "Add filename bookmarks" to create PDF bookmarks
-  from each source file's name in the combined PDF
-• Check "Insert breaker pages" to add a separator page before each
-  file showing which file follows
-• Check "Scale all pages to uniform size" to make all pages the same
-  size (may produce unpredictable results with varying page sizes)
-• Check "Ignore blank pages" to skip blank pages when combining
-• Select Compression/Quality level to reduce file size (higher
-  compression = smaller file but lower quality)
-
-Metadata & Watermark
-• Check "Add PDF metadata" to include Title, Author, Subject,
-  and Keywords in the combined PDF
-• Check "Add watermark to pages" to overlay text on all pages
-  - Set text, opacity, font size, and rotation angle
-
-Combining PDFs and Images
-• At least 2 files are required to combine
-• Images and PDFs can be mixed in any order
-• Images will be converted to PDF automatically during the merge process
-• Click "Combine PDFs" to merge the files
-• Review the summary and click "Proceed"
-• The combined PDF will be created at your chosen location
-
-Preview
-• Hover over a file to see a thumbnail of its first page (for PDFs) or the image itself
-• Uncheck "Preview first page on hover" to disable previews
-
-Status Bar
-• The bottom status bar shows the full path of the file
-  you're currently hovering over or have selected
-
-Practical Limits & Performance
-Memory Considerations:
-• Each PDF is loaded entirely into memory, so RAM can be a bottleneck
-• Try to keep individual PDF sizes under 1 GB for reliable performance
-
-Number of PDFS to Combine:
-• There is no hard-coded limit, but more than 100 files can be combined depending on their sizes
-• The app processes files sequentially, so it's mainly constrained by:
-  - Total available RAM (all pages accumulate in a PdfWriter object before writing to disk)
-  - Combined size of all source PDFs
-
-Combined Output Size:
-• Can theoretically be as large as your disk space and available RAM
-• However, if you're generating a combined PDF with 1000+ pages and/or multiple large files, you may experience:
-  - Slow progress bar updates
-  - Memory strain during the compression phase (if compression is enabled)
-  - Extended write times
-
-Real-World Guidelines:
-• Source PDFs: Keep each file well under 1 GB for smooth operation
-• Number of files: 2-50 files to combine is very reliable; 50-100+ will slow down based on sizes
-• RAM recommendation: 4 GB minimum; 8 GB+ for larger operations
-
-Key Factors Affecting Performance:
-• The PDF engine (PyPDF2) efficiency handles several GB sized files but slows with size
-• Compression consumes RAM and processing time
-• Page scaling/transformations add memory overhead per page
-• Available system RAM limits the aggregate size you can process"""
-
-        # Create help window
-        help_window = tk.Toplevel(self.root)
-        help_window.title("PDF Combiner - Help")
-        help_window.geometry("550x500")
-        help_window.transient(self.root)
+    def _create_text_instructions_tab(self, parent_frame):
+        """Create instructions tab with markdown rendering and text formatting"""
+        instructions_content_frame = tk.Frame(parent_frame)
+        instructions_content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Position help window at center of parent window
-        help_window.update_idletasks()
-        window_width = 550
-        window_height = 500
-        parent_x = self.root.winfo_x()
-        parent_y = self.root.winfo_y()
-        parent_width = self.root.winfo_width()
-        parent_height = self.root.winfo_height()
-        center_x = parent_x + (parent_width - window_width) // 2
-        center_y = parent_y + (parent_height - window_height) // 2
-        help_window.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
-        
-        # Create a frame with scrollbar
-        help_frame = tk.Frame(help_window)
-        help_frame.pack(anchor=tk.W, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Scrollbar
-        scrollbar = tk.Scrollbar(help_frame)
+        scrollbar = tk.Scrollbar(instructions_content_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Text widget
-        text_widget = tk.Text(
-            help_frame,
+        instructions_text = tk.Text(
+            instructions_content_frame,
+            yscrollcommand=scrollbar.set,
             font=("Arial", 9),
             wrap=tk.WORD,
-            yscrollcommand=scrollbar.set,
             bg="white",
-            fg="#000000",
-            padx=10,
-            pady=10
-        )
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=text_widget.yview)
-        
-        # Configure text tags for formatting
-        text_widget.tag_config("header", font=("Arial", 10, "bold"), foreground="#0066CC")
-        text_widget.tag_config("subheader", font=("Arial", 9, "bold"), foreground="#333333")
-        text_widget.tag_config("normal", font=("Arial", 9), foreground="#000000")
-        
-        # Insert help text with formatting
-        sections = help_text.split('\n\n')
-        
-        for i, section in enumerate(sections):
-            lines = section.split('\n')
-            if not lines:
-                continue
-            
-            # First line in each section is a header
-            header_line = lines[0].strip()
-            if header_line:
-                text_widget.insert(tk.END, header_line + "\n", "header")
-            
-            # Add remaining lines as normal text
-            for line in lines[1:]:
-                if line.strip():
-                    text_widget.insert(tk.END, line + "\n", "normal")
-                else:
-                    text_widget.insert(tk.END, "\n")
-            
-            # Add spacing between sections
-            if i < len(sections) - 1:
-                text_widget.insert(tk.END, "\n")
-        
-        text_widget.config(state=tk.DISABLED)  # Make read-only
-        
-        # Close button
-        close_button = tk.Button(
-            help_window,
-            text="Close",
-            command=help_window.destroy,
-            bg="#E0E0E0",
             fg="black",
-            font=("Arial", 10),
-            width=15
+            relief=tk.FLAT,
+            bd=0
         )
-        close_button.pack(pady=10)
+        instructions_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=instructions_text.yview)
+        
+        # Configure text tags for markdown rendering
+        instructions_text.tag_configure("h1", font=("Arial", 12, "bold"), foreground="#0066CC", spacing1=6, spacing3=6)
+        instructions_text.tag_configure("h2", font=("Arial", 11, "bold"), foreground="#0066CC", spacing1=4, spacing3=4)
+        instructions_text.tag_configure("bold", font=("Arial", 9, "bold"))
+        instructions_text.tag_configure("code", font=("Courier", 8), foreground="#666666", background="#F0F0F0")
+        instructions_text.tag_configure("indent", lmargin1=20, lmargin2=20)
+        
+        # Helper to get resource path both when running normally and when frozen
+        def resource_path(relative_path: str) -> str:
+            if getattr(sys, "frozen", False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.path.dirname(__file__)
+            return os.path.join(base_path, relative_path)
+        
+        # Try to load markdown file
+        try:
+            md_file = resource_path("instructions.md")
+            if os.path.exists(md_file):
+                with open(md_file, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                self._render_markdown(instructions_text, markdown_content)
+            else:
+                raise FileNotFoundError("instructions.md not found")
+        except Exception as e:
+            print(f"Warning: Could not load markdown instructions: {e}")
+            # Fallback - show basic text
+            instructions_text.insert(tk.END, "PDF Combiner Instructions\n\nSee the README or help documentation for usage instructions.")
+        
+        instructions_text.config(state=tk.DISABLED)  # Make read-only
+    
+    def _render_markdown(self, text_widget, markdown_content):
+        """Render markdown content into a tk.Text widget with proper formatting"""
+        lines = markdown_content.split('\n')
+        
+        for line in lines:
+            if not line.strip():
+                # Empty line
+                text_widget.insert(tk.END, '\n')
+            elif line.startswith('# '):
+                # H1 header
+                text_widget.insert(tk.END, line[2:] + '\n', 'h1')
+            elif line.startswith('## '):
+                # H2 header
+                text_widget.insert(tk.END, line[3:] + '\n', 'h2')
+            elif line.startswith('### '):
+                # H3 header (subsection)
+                text_widget.insert(tk.END, line[4:] + '\n', 'h2')
+            elif line.startswith('- '):
+                # Regular bullet point
+                content = line[2:]
+                text_widget.insert(tk.END, '• ')
+                self._insert_markdown_line(text_widget, content, indent=False)
+                text_widget.insert(tk.END, '\n')
+            elif line.startswith('  - '):
+                # Nested bullet point - apply indent tag to entire line
+                content = line[4:]
+                start_pos = text_widget.index(tk.END)
+                text_widget.insert(tk.END, '    • ')
+                self._insert_markdown_line(text_widget, content, indent=False)
+                text_widget.insert(tk.END, '\n')
+                # Apply indent tag to the entire bullet block
+                end_pos = text_widget.index(tk.END)
+                text_widget.tag_add('indent', start_pos, end_pos)
+            else:
+                # Regular text or continuation
+                if line.startswith('  '):
+                    # Indented text
+                    start_pos = text_widget.index(tk.END)
+                    self._insert_markdown_line(text_widget, line[2:], indent=False)
+                    text_widget.insert(tk.END, '\n')
+                    end_pos = text_widget.index(tk.END)
+                    text_widget.tag_add('indent', start_pos, end_pos)
+                else:
+                    self._insert_markdown_line(text_widget, line, indent=False)
+                    text_widget.insert(tk.END, '\n')
+    
+    def _insert_markdown_line(self, text_widget, line, indent=False):
+        """Insert a single markdown line with bold and code formatting"""
+        if indent:
+            text_widget.insert(tk.END, '• ', 'indent')
+        
+        i = 0
+        while i < len(line):
+            # Look for bold markers
+            if line[i:i+2] == '**':
+                # Find closing **
+                close_idx = line.find('**', i + 2)
+                if close_idx != -1:
+                    text_widget.insert(tk.END, line[i+2:close_idx], 'bold')
+                    i = close_idx + 2
+                    continue
+            
+            # Look for code markers
+            if line[i] == '`':
+                # Find closing `
+                close_idx = line.find('`', i + 1)
+                if close_idx != -1:
+                    text_widget.insert(tk.END, line[i+1:close_idx], 'code')
+                    i = close_idx + 1
+                    continue
+            
+            # Regular text
+            text_widget.insert(tk.END, line[i])
+            i += 1
     
     def browse_output_location(self):
         """Open directory browser to select output location"""
