@@ -94,6 +94,7 @@ class PDFCombinerApp:
         self.row_visual_state = {}  # Track last background color of each row to avoid unnecessary updates
         self.output_directory = str(Path.home() / "Documents")
         self.add_files_directory = str(Path.home() / "Documents")  # Default directory for adding files
+        self.list_files_directory = str(Path.home() / "Documents")  # Default directory for load/save list
         self.output_filename = tk.StringVar(value="combined.pdf")
         self.last_output_file = None
         self.preview_window = None
@@ -294,13 +295,19 @@ class PDFCombinerApp:
             if self.updating_visuals:
                 return  # Skip during visual-only updates
             
+            # Get canvas dimensions
+            canvas_width = self.file_list_canvas.winfo_width()
+            
+            # Update frame width to match canvas
+            if canvas_width > 1:
+                self.file_list_frame.configure(width=canvas_width)
+                self.file_list_canvas.itemconfig(canvas_window, width=canvas_width)
+            
             # Update the scrollregion to encompass the frame
             self.file_list_frame.update_idletasks()
-            # Use the frame's required size for scrollregion
             frame_width = self.file_list_frame.winfo_reqwidth()
             frame_height = self.file_list_frame.winfo_reqheight()
             
-            # Get canvas height to prevent scrolling above content
             canvas_height = self.file_list_canvas.winfo_height()
             if canvas_height <= 1:
                 canvas_height = 270  # Default height fallback
@@ -312,9 +319,6 @@ class PDFCombinerApp:
             if new_region != self.last_scrollregion:
                 self.last_scrollregion = new_region
                 self.file_list_canvas.configure(scrollregion=new_region)
-                # Make canvas window width match canvas width
-                if self.file_list_canvas.winfo_width() > 1:
-                    self.file_list_canvas.itemconfig(canvas_window, width=self.file_list_canvas.winfo_width())
         
         # Store configure function for manual calls
         self.canvas_configure = on_frame_configure
@@ -333,9 +337,33 @@ class PDFCombinerApp:
         self.scrollbar = scrollbar
         self.file_listbox = None  # No legacy listbox anymore
         
-        # File count label
-        self.count_label = tk.Label(input_frame, text="Files to combine: 0", font=("Arial", 9))
-        self.count_label.pack(pady=1)
+        # File count label with legend
+        count_legend_frame = tk.Frame(input_frame)
+        count_legend_frame.pack(pady=1, fill=tk.X)
+        
+        # Legend on the far left
+        legend_frame = tk.Frame(count_legend_frame)
+        legend_frame.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Blue square for Image
+        image_square = tk.Canvas(legend_frame, width=12, height=12, bg="SystemButtonFace", highlightthickness=0)
+        image_square.pack(side=tk.LEFT, padx=(0, 2))
+        image_square.create_rectangle(1, 1, 11, 11, fill="#4A90E2", outline="#4A90E2")
+        
+        image_label = tk.Label(legend_frame, text="Image", font=("Arial", 8))
+        image_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Black square for PDF
+        pdf_square = tk.Canvas(legend_frame, width=12, height=12, bg="SystemButtonFace", highlightthickness=0)
+        pdf_square.pack(side=tk.LEFT, padx=(0, 2))
+        pdf_square.create_rectangle(1, 1, 11, 11, fill="black", outline="black")
+        
+        pdf_label = tk.Label(legend_frame, text="PDF", font=("Arial", 8))
+        pdf_label.pack(side=tk.LEFT)
+        
+        # File count centered
+        self.count_label = tk.Label(count_legend_frame, text="Files to combine: 0", font=("Arial", 9))
+        self.count_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         
         # Drag and drop instruction
         drag_drop_note = tk.Label(
@@ -490,7 +518,7 @@ class PDFCombinerApp:
             font=("Arial", 9)
         )
         bookmark_checkbox.pack(anchor="w")
-        ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF. Existing bookmarks will be retained under\nthe filename bookmark.")
+        ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF, linking to the start of that file's content.\nNote: Source PDF bookmarks are not currently preserved.")
 
         scale_checkbox = tk.Checkbutton(
             bookmark_frame,
@@ -894,6 +922,12 @@ class PDFCombinerApp:
                     if os.path.exists(saved_dir):
                         self.add_files_directory = saved_dir
                 
+                # Load list files directory if it exists
+                if 'list_files_directory' in settings:
+                    saved_dir = settings['list_files_directory']
+                    if os.path.exists(saved_dir):
+                        self.list_files_directory = saved_dir
+                
                 # Load preview enabled state
                 if 'preview_enabled' in settings:
                     self.preview_enabled.set(settings['preview_enabled'])
@@ -972,6 +1006,7 @@ class PDFCombinerApp:
             settings = {
                 'output_directory': self.output_directory,
                 'add_files_directory': self.add_files_directory,
+                'list_files_directory': self.list_files_directory,
                 'preview_enabled': self.preview_enabled.get(),
                 'add_filename_bookmarks': self.add_filename_bookmarks.get(),
                 'insert_blank_pages': self.insert_blank_pages.get(),
@@ -1110,6 +1145,11 @@ class PDFCombinerApp:
             initialdir=self.add_files_directory
         )
         
+        # Update the add files directory for next time if files were selected
+        if files:
+            self.add_files_directory = str(Path(files[0]).parent)
+            self._save_settings()
+        
         added_count = 0
         duplicate_count = 0
         duplicates = []
@@ -1134,8 +1174,6 @@ class PDFCombinerApp:
                 # Note: rotation applies to PDFs; images will be rotated after conversion
                 self.pdf_files.append({'path': file, 'rotation': 0, 'page_range': 'All', 'reverse': False})
                 added_count += 1
-                # Update the add files directory to the directory of the last selected file
-                self.add_files_directory = str(Path(file).parent)
             else:
                 duplicate_count += 1
                 duplicates.append(Path(file).name)
@@ -1154,10 +1192,6 @@ class PDFCombinerApp:
         self.status_label.config(text="")
 
         self.update_count()
-        
-        # Save settings if files were added
-        if added_count > 0:
-            self._save_settings()
         
         # Show warning if unsupported files were attempted
         if unsupported_count > 0:
@@ -1368,13 +1402,17 @@ class PDFCombinerApp:
         
         # Ask user for file location
         file_path = filedialog.asksaveasfilename(
-            initialdir=self.add_files_directory,
+            initialdir=self.list_files_directory,
             filetypes=[("PDF List Files", "*.pdflist"), ("JSON Files", "*.json"), ("All Files", "*.*")],
             defaultextension=".pdflist"
         )
         
         if not file_path:
             return
+        
+        # Update the list files directory for next time
+        self.list_files_directory = str(Path(file_path).parent)
+        self._save_settings()
         
         try:
             # Convert pdf_files to a serializable format
@@ -1400,12 +1438,16 @@ class PDFCombinerApp:
         """Load a previously saved PDF list from a JSON file"""
         # Ask user for file location
         file_path = filedialog.askopenfilename(
-            initialdir=self.add_files_directory,
+            initialdir=self.list_files_directory,
             filetypes=[("PDF List Files", "*.pdflist"), ("JSON Files", "*.json"), ("All Files", "*.*")]
         )
         
         if not file_path:
             return
+        
+        # Update the list files directory for next time
+        self.list_files_directory = str(Path(file_path).parent)
+        self._save_settings()
         
         try:
             # Read JSON file
@@ -1520,8 +1562,16 @@ class PDFCombinerApp:
         
         # Show placeholder if list is empty
         if len(self.pdf_files) == 0:
+            # Get canvas height for placeholder centering
+            canvas_height = self.file_list_canvas.winfo_height()
+            if canvas_height <= 1:
+                canvas_height = 270
+            
+            # Set frame height to canvas height so placeholder can center vertically
+            self.file_list_frame.configure(height=canvas_height)
+            
             placeholder_frame = tk.Frame(self.file_list_frame, bg="white")
-            placeholder_frame.pack(fill=tk.X, expand=True, padx=20, pady=40)
+            placeholder_frame.pack(fill=tk.BOTH, expand=True)
             
             placeholder_label = tk.Label(
                 placeholder_frame,
@@ -1529,13 +1579,17 @@ class PDFCombinerApp:
                 font=("Arial", 11, "bold"),
                 fg="red",
                 bg="white",
-                justify=tk.LEFT
+                justify=tk.CENTER,
+                anchor="center"
             )
-            placeholder_label.pack()
+            placeholder_label.pack(fill=tk.BOTH, expand=True)
             
             # Manually update canvas scrollregion after adding placeholder
             self.root.after_idle(self.canvas_configure)
             return
+        
+        # Reset frame height to natural size when files are present
+        self.file_list_frame.configure(height=1)
         
         for i, pdf_entry in enumerate(self.pdf_files):
             file_path = self.get_file_path(pdf_entry)
@@ -2191,7 +2245,6 @@ Output Settings
 • Click "Browse" to choose where to save the combined PDF
 • Check "Add filename bookmarks" to create PDF bookmarks
   from each source file's name in the combined PDF
-  - Existing bookmarks in files will be preserved under the filename
 • Check "Insert breaker pages" to add a separator page before each
   file showing which file follows
 • Check "Scale all pages to uniform size" to make all pages the same
@@ -2976,12 +3029,6 @@ Key Factors Affecting Performance:
                             bookmark_title = Path(file_path).stem
                             parent_bookmark = pdf_writer.add_outline_item(bookmark_title, current_page_num)
                         
-                        # Copy original bookmarks from source PDF
-                        try:
-                            self._copy_bookmarks(pdf_reader, pdf_writer, parent_bookmark, current_page_num, page_indices)
-                        except Exception:
-                            pass
-                        
                         # Process each page
                         for page_index in page_indices:
                             page = pdf_reader.pages[page_index]
@@ -3646,59 +3693,6 @@ Key Factors Affecting Performance:
         
         return sorted(indices)
 
-    def _copy_bookmarks(self, reader, writer, parent, page_offset, page_indices):
-        """Recursively copy bookmarks from source PDF to combined PDF, adjusting page numbers."""
-        try:
-            outlines = reader.outline
-            if not outlines:
-                return
-            
-            self._copy_outline_items(reader, writer, outlines, parent, page_offset, page_indices)
-        except Exception:
-            # If reading outlines fails, silently continue without them
-            pass
-    
-    def _copy_outline_items(self, reader, writer, items, parent, page_offset, page_indices):
-        """Process outline items recursively."""
-        for item in items:
-            if isinstance(item, list):
-                # Nested list of items
-                self._copy_outline_items(reader, writer, item, parent, page_offset, page_indices)
-            else:
-                # Individual bookmark item
-                try:
-                    # Get the page number this bookmark points to
-                    if hasattr(item, 'page'):
-                        page_obj = item.page
-                        if page_obj is not None:
-                            # Get the index of this page in the source PDF
-                            try:
-                                source_page_num = reader.pages.index(page_obj)
-                            except (ValueError, AttributeError):
-                                continue
-                            
-                            # Check if this page is included in our selected range
-                            if source_page_num not in page_indices:
-                                continue
-                            
-                            # Calculate position in our selected pages
-                            position_in_selection = page_indices.index(source_page_num)
-                            new_page_num = page_offset + position_in_selection
-                            
-                            # Get bookmark title
-                            title = item.get('/Title', 'Untitled')
-                            
-                            # Add bookmark as child of parent
-                            new_bookmark = writer.add_outline_item(title, new_page_num, parent=parent)
-                            
-                            # Recursively process children if any
-                            if hasattr(item, 'node') and hasattr(item.node, 'children'):
-                                children = item.node.children
-                                if children:
-                                    self._copy_outline_items(reader, writer, children, new_bookmark, page_offset, page_indices)
-                except Exception:
-                    # Skip bookmarks that fail to process
-                    continue
 
     def _validate_page_range(self, index: int, var: tk.StringVar, entry_widget: tk.Entry):
         """Validate a page range after entry and revert on error."""
@@ -4083,14 +4077,9 @@ Key Factors Affecting Performance:
             # Open the PDF with PyMuPDF
             doc = fitz.open(pdf_path)
             
-            # Get the dimensions from the first page (or use letter size as default)
-            if len(doc) > 0:
-                first_page = doc[0]
-                page_width = first_page.rect.width
-                page_height = first_page.rect.height
-            else:
-                page_width = 612  # Letter width
-                page_height = 792  # Letter height
+            # Use standard letter size for TOC pages
+            page_width = 612  # Letter width
+            page_height = 792  # Letter height
             
             # Set up fonts and positions
             title_font_size = 24
