@@ -78,8 +78,6 @@
 
 - The bottom status bar shows the full path of the file you're currently hovering over or have selected
 
-## Practical Limits & Performance
-
 ### Memory Considerations
 
 - Each PDF is loaded entirely into memory, so RAM can be a bottleneck

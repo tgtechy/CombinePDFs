@@ -2236,6 +2236,7 @@ class PDFCombinerApp:
         instructions_text.tag_configure("h1", font=("Arial", 12, "bold"), foreground="#0066CC", spacing1=6, spacing3=6)
         instructions_text.tag_configure("h2", font=("Arial", 11, "bold"), foreground="#0066CC", spacing1=4, spacing3=4)
         instructions_text.tag_configure("bold", font=("Arial", 9, "bold"))
+        instructions_text.tag_configure("underline", font=("Arial", 9, "underline"))
         instructions_text.tag_configure("code", font=("Courier", 8), foreground="#666666", background="#F0F0F0")
         instructions_text.tag_configure("indent", lmargin1=20, lmargin2=20)
         
@@ -2310,12 +2311,21 @@ class PDFCombinerApp:
                     text_widget.insert(tk.END, '\n')
     
     def _insert_markdown_line(self, text_widget, line, indent=False):
-        """Insert a single markdown line with bold and code formatting"""
+        """Insert a single markdown line with bold, underline, and code formatting"""
         if indent:
             text_widget.insert(tk.END, '• ', 'indent')
         
         i = 0
         while i < len(line):
+            # Look for underline markers (__text__)
+            if line[i:i+2] == '__':
+                # Find closing __
+                close_idx = line.find('__', i + 2)
+                if close_idx != -1:
+                    text_widget.insert(tk.END, line[i+2:close_idx], 'underline')
+                    i = close_idx + 2
+                    continue
+            
             # Look for bold markers
             if line[i:i+2] == '**':
                 # Find closing **
