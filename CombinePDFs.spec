@@ -5,7 +5,7 @@ a = Analysis(
     ['combine_pdfs.py'],
     pathex=[],
     binaries=[],
-    datas=[('pdfcombinericon.png', '.'), ('pdfcombinericon.ico', '.')],
+    datas=[('pdfcombinericon.png', '.'), ('pdfcombinericon.ico', '.'), ('instructions.md', '.')],
     hiddenimports=['PyPDF2', 'fitz', 'PIL', 'PIL.Image', 'PIL.ImageTk'],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    manifest='app.manifest',
     icon='pdfcombinericon.ico',
 )

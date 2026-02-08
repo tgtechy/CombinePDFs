@@ -27,6 +27,7 @@ wheels/
 *.manifest
 build/
 dist/
+installer/
 
 # IDEs
 .vscode/
@@ -44,3 +45,6 @@ pdf_icon.ico
 pdf_icon.png
 combine_pdfs.ico
 combine_pdfs.png
+
+# Build/installer
+CombinePDFs.iss

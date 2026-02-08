@@ -51,8 +51,8 @@ class PDFCombinerApp:
         self.root.title("PDF Combiner")
         
         # Center window horizontally and align to top
-        window_width = 700
-        window_height = 580
+        window_width = 830
+        window_height = 620
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -92,9 +92,13 @@ class PDFCombinerApp:
         self.updating_visuals = False  # Flag to prevent configure during visual updates
         self.last_scrollregion = None  # Track last scrollregion to avoid unnecessary updates
         self.row_visual_state = {}  # Track last background color of each row to avoid unnecessary updates
-        self.output_directory = str(Path.home() / "Documents")
-        self.add_files_directory = str(Path.home() / "Documents")  # Default directory for adding files
-        self.list_files_directory = str(Path.home() / "Documents")  # Default directory for load/save list
+        # Prefer Documents when it exists; otherwise fall back to a known existing folder.
+        home_dir = Path.home()
+        candidates = [home_dir / "Documents", home_dir / "Desktop", home_dir]
+        default_dir = next((p for p in candidates if p.exists()), home_dir)
+        self.output_directory = str(default_dir)
+        self.add_files_directory = str(default_dir)  # Default directory for adding files
+        self.list_files_directory = str(default_dir)  # Default directory for load/save list
         self.output_filename = tk.StringVar(value="combined.pdf")
         self.last_output_file = None
         self.preview_window = None
