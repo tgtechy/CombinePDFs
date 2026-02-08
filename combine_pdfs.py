@@ -13,7 +13,7 @@ import io
 import fitz  # PyMuPDF
 import threading
 
-__VERSION__ = "1.4.0"
+__VERSION__ = "1.5.0"
 
 class ToolTip:
     """Create a tooltip for a given widget"""
@@ -154,7 +154,7 @@ class PDFCombinerApp:
         
         # Configure the notebook and tab appearance
         style.configure('TNotebook', background='#E0E0E0', borderwidth=2, relief='solid')
-        style.configure('TNotebook.Tab', padding=[10, 4], font=('Arial', 10, 'bold'), background='#D0D0D0', foreground='#333333', focuscolor='#D0D0D0')
+        style.configure('TNotebook.Tab', padding=[10, 4], font=('Arial', 10, 'bold'), background='#D0D0D0', foreground='#333333', focuscolor='#D0D0D0', width=16, anchor='center')
         style.map('TNotebook.Tab', 
                   background=[('selected', '#4A90E2'), ('active', '#5B9FE8')],
                   foreground=[('selected', 'white'), ('active', 'white')],
@@ -181,7 +181,7 @@ class PDFCombinerApp:
         
         # ===== INPUT TAB =====
         input_frame = tk.Frame(self.notebook)
-        self.notebook.add(input_frame, text="Input")
+        self.notebook.add(input_frame, text="Input Files")
         
         # Spacer to move content down
         spacer_frame = tk.Frame(input_frame, height=10)
@@ -193,12 +193,12 @@ class PDFCombinerApp:
         title_container.pack(pady=(0, 0))
         
         # Draw shadow text (offset, subtle light gray)
-        title_container.create_text(142, 17, text="PDF Combiner by tgtechy", font=("Arial", 14, "bold"), 
+        title_container.create_text(142, 17, text="PDF Combiner", font=("Arial", 14, "bold"), 
                                    fill="#BBBBBB", anchor="center")
         
         # Draw main title text (blue) 
-        title_container.create_text(141, 16, text="PDF Combiner by tgtechy", font=("Arial", 14, "bold"), 
-                                   fill="#0059A6", anchor="center")
+        title_container.create_text(141, 16, text="PDF Combiner", font=("Arial", 14, "bold"), 
+                                   fill="#000000", anchor="center")
         
         # Title and preview checkbox frame - same line
         title_frame = tk.Frame(input_frame)
@@ -406,7 +406,7 @@ class PDFCombinerApp:
         
         # ===== OUTPUT TAB =====
         output_frame_main = tk.Frame(self.notebook)
-        self.notebook.add(output_frame_main, text="Output")
+        self.notebook.add(output_frame_main, text="Output Settings")
         
         # Padding frame for better spacing
         output_content_frame = tk.Frame(output_frame_main)
@@ -492,11 +492,45 @@ class PDFCombinerApp:
         bookmark_checkbox.pack(anchor="w")
         ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF. Existing bookmarks will be retained under\nthe filename bookmark.")
 
+        scale_checkbox = tk.Checkbutton(
+            bookmark_frame,
+            text="Scale all pages to uniform size",
+            variable=self.enable_page_scaling,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        scale_checkbox.pack(anchor="w", pady=(2, 0))
+        ToolTip(scale_checkbox, "Pages will be resized to a uniform size.")
+
+        toc_checkbox = tk.Checkbutton(
+            bookmark_frame,
+            text="Insert Table of Contents page",
+            variable=self.insert_toc,
+            command=self._save_settings,
+            font=("Arial", 9)
+        )
+        toc_checkbox.pack(anchor="w", pady=(2, 0))
+        ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
+
+        compression_frame = tk.Frame(bookmark_frame)
+        compression_frame.pack(anchor="w", pady=(2, 0))
+        tk.Label(compression_frame, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT, padx=(0, 5))
+        compression_combo = ttk.Combobox(
+            compression_frame,
+            textvariable=self.compression_quality,
+            values=["None", "Low", "Medium", "High", "Maximum"],
+            width=12,
+            state="readonly",
+            font=("Arial", 9)
+        )
+        compression_combo.pack(side=tk.LEFT)
+        compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
+        compression_combo.bind("<FocusOut>", lambda e: self._validate_compression_quality())
+        ToolTip(compression_combo, "Compresses the combined PDF.\nHigher compression = Smaller filesize but lowers quality")
+
         breaker_options_frame = tk.Frame(
             checkbox_row,
             bg=checkbox_row.cget("bg"),
-            highlightbackground="#CFCFCF",
-            highlightthickness=1,
             padx=6,
             pady=4
         )
@@ -524,57 +558,18 @@ class PDFCombinerApp:
         self.breaker_uniform_checkbox.pack(anchor="w", padx=(18, 0))
         ToolTip(self.breaker_uniform_checkbox, "When enabled, all breaker pages will be standard letter size.\nWhen disabled, breaker pages match the following content size.")
         self._toggle_breaker_page_options()
-        
-        # Page Options section
-        page_options_row = tk.Frame(options_frame)
-        page_options_row.pack(fill=tk.X, pady=(2, 2), padx=8)
-        
-        scale_checkbox = tk.Checkbutton(
-            page_options_row,
-            text="Scale all pages to uniform size",
-            variable=self.enable_page_scaling,
-            command=self._save_settings,
-            font=("Arial", 9)
-        )
-        scale_checkbox.pack(side=tk.LEFT, anchor="w")
-        ToolTip(scale_checkbox, "Pages will be resized to a uniform size.")
-        
+
         blank_detect_checkbox = tk.Checkbutton(
-            page_options_row,
+            breaker_options_frame,
             text="Ignore blank pages in source files when combining",
             variable=self.delete_blank_pages,
             command=self._save_settings,
             font=("Arial", 9)
         )
-        blank_detect_checkbox.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
+        blank_detect_checkbox.pack(anchor="w", pady=(4, 0))
         ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
         
-        # Table of Contents checkbox + Compression on the same row
-        toc_row = tk.Frame(options_frame)
-        toc_row.pack(fill=tk.X, pady=(3, 1), padx=8)
-        toc_checkbox = tk.Checkbutton(
-            toc_row,
-            text="Insert Table of Contents page",
-            variable=self.insert_toc,
-            command=self._save_settings,
-            font=("Arial", 9)
-        )
-        toc_checkbox.pack(side=tk.LEFT, anchor="w")
-        ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
-
-        tk.Label(toc_row, text="Compression Level:", font=("Arial", 9)).pack(side=tk.LEFT, padx=(15, 0))
-        compression_combo = ttk.Combobox(
-            toc_row,
-            textvariable=self.compression_quality,
-            values=["None", "Low", "Medium", "High", "Maximum"],
-            width=12,
-            state="readonly",
-            font=("Arial", 9)
-        )
-        compression_combo.pack(side=tk.LEFT, padx=5)
-        compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
-        compression_combo.bind("<FocusOut>", lambda e: self._validate_compression_quality())
-        ToolTip(compression_combo, "Compresses the combined PDF.\nHigher compression = Smaller filesize but lowers quality")
+        # Compression moved under TOC checkbox in left column
         
         # Metadata section
         metadata_checkbox = tk.Checkbutton(
@@ -1501,11 +1496,11 @@ class PDFCombinerApp:
             
             placeholder_label = tk.Label(
                 placeholder_frame,
-                text='Click the "Add PDFs/Images" button below to get started ...\nSupported formats: PDF, JPG, PNG, BMP, GIF, TIFF',
+                text='Click the "Add PDFs/Images" button below to get started\nSupported formats are PDF, JPG, PNG, BMP, GIF, TIFF',
                 font=("Arial", 11, "bold"),
                 fg="red",
                 bg="white",
-                justify=tk.CENTER
+                justify=tk.LEFT
             )
             placeholder_label.pack()
             
