@@ -2542,7 +2542,7 @@ Key Factors Affecting Performance:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("550x350")
+        summary_window.geometry("550x500")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
@@ -2554,7 +2554,7 @@ Key Factors Affecting Performance:
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
         dialog_width = 550
-        dialog_height = 390
+        dialog_height = 500
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         summary_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -2568,200 +2568,92 @@ Key Factors Affecting Performance:
         )
         title_label.pack()
         
-        # Info frame
+        # Info frame with table layout
         info_frame = tk.Frame(summary_window)
-        info_frame.pack(pady=10, padx=20, fill=tk.X)
+        info_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        
+        # Configure grid columns: left for labels, right for values
+        info_frame.columnconfigure(0, weight=0)  # Labels column
+        info_frame.columnconfigure(1, weight=1)  # Values column
+        
+        row = 0
         
         # Files count
-        files_row = tk.Frame(info_frame)
-        files_row.pack(fill=tk.X, pady=5)
-        files_label = tk.Label(
-            files_row,
-            text="Files to combine:",
-            font=("Arial", 10, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        files_label.pack(side=tk.LEFT)
-        files_value = tk.Label(
-            files_row,
-            text=f"  {len(files_to_combine)} files",
-            font=("Arial", 10, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        files_value.pack(side=tk.LEFT)
+        tk.Label(info_frame, text="Files to combine:", font=("Arial", 10, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=5)
+        tk.Label(info_frame, text=f"{len(files_to_combine)} files", font=("Arial", 10, "bold"), fg="#0066CC", anchor="w").grid(row=row, column=1, sticky="nw", pady=5)
+        row += 1
         
         # Total pages
-        pages_row = tk.Frame(info_frame)
-        pages_row.pack(fill=tk.X, pady=5)
-        pages_label = tk.Label(
-            pages_row,
-            text="Total pages:",
-            font=("Arial", 10, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        pages_label.pack(side=tk.LEFT)
         if blank_pages > 0:
-            pages_text = f"  {total_pages} pages ({original_pages} from PDFs + {blank_pages} breaker pages)"
+            pages_text = f"{total_pages} pages ({original_pages} from PDFs + {blank_pages} breaker pages)"
         else:
-            pages_text = f"  {total_pages} pages"
-        pages_value = tk.Label(
-            pages_row,
-            text=pages_text,
-            font=("Arial", 10, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        pages_value.pack(side=tk.LEFT)
+            pages_text = f"{total_pages} pages"
+        tk.Label(info_frame, text="Total pages:", font=("Arial", 10, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=5)
+        tk.Label(info_frame, text=pages_text, font=("Arial", 10, "bold"), fg="#0066CC", anchor="w").grid(row=row, column=1, sticky="nw", pady=5)
+        row += 1
         
         # Total size
-        size_row = tk.Frame(info_frame)
-        size_row.pack(fill=tk.X, pady=5)
-        size_label = tk.Label(
-            size_row,
-            text="Total size:",
-            font=("Arial", 10, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        size_label.pack(side=tk.LEFT)
-        size_value = tk.Label(
-            size_row,
-            text=f"  {size_str}",
-            font=("Arial", 10, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        size_value.pack(side=tk.LEFT)
+        tk.Label(info_frame, text="Total size:", font=("Arial", 10, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=5)
+        tk.Label(info_frame, text=size_str, font=("Arial", 10, "bold"), fg="#0066CC", anchor="w").grid(row=row, column=1, sticky="nw", pady=5)
+        row += 1
         
         # Save path
-        path_row = tk.Frame(info_frame)
-        path_row.pack(fill=tk.X, pady=5)
-        path_label = tk.Label(
-            path_row,
-            text="Save to:",
-            font=("Arial", 10, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        path_label.pack(side=tk.LEFT, anchor="nw")
-        path_value = tk.Label(
-            path_row,
-            text=f"  {output_file}",
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w",
-            wraplength=420,
-            justify=tk.LEFT
-        )
-        path_value.pack(side=tk.LEFT, anchor="nw", fill=tk.X, expand=True)
+        tk.Label(info_frame, text="Save to:", font=("Arial", 10, "bold"), fg="black", anchor="ne", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=5)
+        tk.Label(info_frame, text=output_file, font=("Arial", 9, "bold"), fg="#0066CC", anchor="w", wraplength=300, justify=tk.LEFT).grid(row=row, column=1, sticky="nw", pady=5)
+        row += 1
         
         # Compression level
-        compression_row = tk.Frame(info_frame)
-        compression_row.pack(fill=tk.X, pady=4)
-        compression_label = tk.Label(
-            compression_row,
-            text="Compression:",
-            font=("Arial", 9, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        compression_label.pack(side=tk.LEFT)
-        compression_value = tk.Label(
-            compression_row,
-            text=f"  {self.compression_quality.get()}",
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        compression_value.pack(side=tk.LEFT)
+        tk.Label(info_frame, text="Compression:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=self.compression_quality.get(), font=("Arial", 9, "bold"), fg="#0066CC", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
         
         # Bookmarks
-        bookmarks_row = tk.Frame(info_frame)
-        bookmarks_row.pack(fill=tk.X, pady=4)
-        bookmarks_label = tk.Label(
-            bookmarks_row,
-            text="Bookmarks:",
-            font=("Arial", 9, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        bookmarks_label.pack(side=tk.LEFT)
-        bookmarks_value = tk.Label(
-            bookmarks_row,
-            text=f"  {'Enabled' if self.add_filename_bookmarks.get() else 'Disabled'}",
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        bookmarks_value.pack(side=tk.LEFT)
+        bookmarks_enabled = self.add_filename_bookmarks.get()
+        tk.Label(info_frame, text="Bookmarks:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if bookmarks_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if bookmarks_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
         
         # Table of Contents
-        toc_row = tk.Frame(info_frame)
-        toc_row.pack(fill=tk.X, pady=4)
-        toc_label = tk.Label(
-            toc_row,
-            text="Table of Contents:",
-            font=("Arial", 9, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        toc_label.pack(side=tk.LEFT)
-        toc_value = tk.Label(
-            toc_row,
-            text=f"  {'Enabled' if self.insert_toc.get() else 'Disabled'}",
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        toc_value.pack(side=tk.LEFT)
+        toc_enabled = self.insert_toc.get()
+        tk.Label(info_frame, text="Table of Contents:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if toc_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if toc_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
         
         # Watermark
-        watermark_row = tk.Frame(info_frame)
-        watermark_row.pack(fill=tk.X, pady=4)
-        watermark_label = tk.Label(
-            watermark_row,
-            text="Watermark:",
-            font=("Arial", 9, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        watermark_label.pack(side=tk.LEFT)
-        if self.enable_watermark.get():
-            watermark_text = f"  Enabled - '{self.watermark_text.get()}' ({self.watermark_position.get().lower()})"
+        watermark_enabled = self.enable_watermark.get()
+        if watermark_enabled:
+            watermark_text = f"Enabled - '{self.watermark_text.get()}' ({self.watermark_position.get().lower()})"
+            watermark_color = "#006600"
         else:
-            watermark_text = "  Disabled"
-        watermark_value = tk.Label(
-            watermark_row,
-            text=watermark_text,
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w",
-            wraplength=400
-        )
-        watermark_value.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            watermark_text = "Disabled"
+            watermark_color = "#CC0000"
+        tk.Label(info_frame, text="Watermark:", font=("Arial", 9, "bold"), fg="black", anchor="ne", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=watermark_text, font=("Arial", 9, "bold"), fg=watermark_color, anchor="w", wraplength=300, justify=tk.LEFT).grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
         
         # Page Scaling
-        scaling_row = tk.Frame(info_frame)
-        scaling_row.pack(fill=tk.X, pady=4)
-        scaling_label = tk.Label(
-            scaling_row,
-            text="Page Scaling:",
-            font=("Arial", 9, "bold"),
-            fg="black",
-            anchor="w"
-        )
-        scaling_label.pack(side=tk.LEFT)
-        scaling_value = tk.Label(
-            scaling_row,
-            text=f"  {'Enabled' if self.enable_page_scaling.get() else 'Disabled'}",
-            font=("Arial", 9, "bold"),
-            fg="#0066CC",
-            anchor="w"
-        )
-        scaling_value.pack(side=tk.LEFT)
+        scaling_enabled = self.enable_page_scaling.get()
+        tk.Label(info_frame, text="Page Scaling:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if scaling_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if scaling_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
+        
+        # Insert breaker pages
+        breaker_enabled = self.insert_blank_pages.get()
+        tk.Label(info_frame, text="Insert breaker pages:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if breaker_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if breaker_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
+        
+        # Ignore blank pages
+        ignore_blank_enabled = self.delete_blank_pages.get()
+        tk.Label(info_frame, text="Ignore blank pages:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if ignore_blank_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if ignore_blank_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
+        
+        # Add PDF metadata
+        metadata_enabled = self.enable_metadata.get()
+        tk.Label(info_frame, text="Add PDF metadata:", font=("Arial", 9, "bold"), fg="black", anchor="e", justify=tk.RIGHT).grid(row=row, column=0, sticky="ne", padx=(0, 15), pady=4)
+        tk.Label(info_frame, text=f"{'Enabled' if metadata_enabled else 'Disabled'}", font=("Arial", 9, "bold"), fg="#006600" if metadata_enabled else "#CC0000", anchor="w").grid(row=row, column=1, sticky="nw", pady=4)
+        row += 1
         
         # Button frame
         button_frame = tk.Frame(summary_window)
