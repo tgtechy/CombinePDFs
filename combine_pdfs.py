@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 import sys
+import ctypes
 import PyPDF2
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -14,6 +15,18 @@ import fitz  # PyMuPDF
 import threading
 
 __VERSION__ = "1.5.0"
+
+
+def _enable_dpi_awareness() -> None:
+    if os.name != 'nt':
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
 
 class ToolTip:
     """Create a tooltip for a given widget"""
@@ -46,13 +59,22 @@ class ToolTip:
             self.tooltip_window = None
 
 class PDFCombinerApp:
+    def _get_dpi_scale(self) -> float:
+        try:
+            return self.root.winfo_fpixels("1i") / 96.0
+        except Exception:
+            return 1.0
+
+    def _scale_geometry(self, width: int, height: int) -> tuple[int, int]:
+        scale = self._get_dpi_scale()
+        return max(1, int(width * scale)), max(1, int(height * scale))
+
     def __init__(self, root):
         self.root = root
         self.root.title("PDF Combiner")
         
         # Center window horizontally and align to top
-        window_width = 830
-        window_height = 620
+        window_width, window_height = self._scale_geometry(640, 540)
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -1324,7 +1346,8 @@ class PDFCombinerApp:
         """Show a dialog window for loading or saving PDF lists"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Load/Save PDF List")
-        dialog.geometry("400x300")
+        dialog_width, dialog_height = self._scale_geometry(400, 300)
+        dialog.geometry(f"{dialog_width}x{dialog_height}")
         dialog.resizable(False, False)
         dialog.withdraw()  # Hide initially to position before showing
         
@@ -2507,7 +2530,8 @@ class PDFCombinerApp:
         # Create summary window
         summary_window = tk.Toplevel(self.root)
         summary_window.title("Combine Summary")
-        summary_window.geometry("550x500")
+        dialog_width, dialog_height = self._scale_geometry(550, 500)
+        summary_window.geometry(f"{dialog_width}x{dialog_height}")
         summary_window.resizable(False, False)
         summary_window.transient(self.root)
         summary_window.grab_set()
@@ -2518,11 +2542,9 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 550
-        dialog_height = 500
         center_x = parent_x + (parent_width - dialog_width) // 2
-        center_y = parent_y + (parent_height - dialog_height) // 2
-        summary_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        top_y = parent_y
+        summary_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{top_y}")
         
         # Title
         title_label = tk.Label(
@@ -2656,7 +2678,8 @@ class PDFCombinerApp:
         # Create progress window
         progress_window = tk.Toplevel(self.root)
         progress_window.title("Combining PDFs")
-        progress_window.geometry("400x190")
+        dialog_width, dialog_height = self._scale_geometry(400, 190)
+        progress_window.geometry(f"{dialog_width}x{dialog_height}")
         progress_window.resizable(False, False)
         progress_window.transient(self.root)
         progress_window.grab_set()
@@ -2667,8 +2690,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 400
-        dialog_height = 190
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         progress_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3054,7 +3075,8 @@ class PDFCombinerApp:
         # Create success window
         success_window = tk.Toplevel(self.root)
         success_window.title("Success")
-        success_window.geometry("500x200")
+        dialog_width, dialog_height = self._scale_geometry(500, 200)
+        success_window.geometry(f"{dialog_width}x{dialog_height}")
         success_window.resizable(False, False)
         success_window.transient(self.root)
         success_window.grab_set()
@@ -3065,8 +3087,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 500
-        dialog_height = 200
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         success_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3166,7 +3186,8 @@ class PDFCombinerApp:
         # Create overwrite window
         overwrite_window = tk.Toplevel(self.root)
         overwrite_window.title("Overwrite File")
-        overwrite_window.geometry("480x220")
+        dialog_width, dialog_height = self._scale_geometry(480, 220)
+        overwrite_window.geometry(f"{dialog_width}x{dialog_height}")
         overwrite_window.resizable(False, False)
         overwrite_window.transient(self.root)
         overwrite_window.grab_set()
@@ -3177,8 +3198,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 480
-        dialog_height = 220
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         overwrite_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3269,7 +3288,8 @@ class PDFCombinerApp:
         """Show an info/success dialog centered on parent window"""
         info_window = tk.Toplevel(self.root)
         info_window.title(title)
-        info_window.geometry("450x170")
+        dialog_width, dialog_height = self._scale_geometry(450, 170)
+        info_window.geometry(f"{dialog_width}x{dialog_height}")
         info_window.resizable(False, False)
         info_window.transient(self.root)
         info_window.grab_set()
@@ -3280,8 +3300,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 450
-        dialog_height = 170
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         info_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3329,7 +3347,8 @@ class PDFCombinerApp:
         """Show an error dialog centered on parent window"""
         error_window = tk.Toplevel(self.root)
         error_window.title(title)
-        error_window.geometry("450x180")
+        dialog_width, dialog_height = self._scale_geometry(450, 180)
+        error_window.geometry(f"{dialog_width}x{dialog_height}")
         error_window.resizable(False, False)
         error_window.transient(self.root)
         error_window.grab_set()
@@ -3340,8 +3359,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 450
-        dialog_height = 180
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         error_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -3392,7 +3409,8 @@ class PDFCombinerApp:
         # Create merge dialog window
         merge_window = tk.Toplevel(self.root)
         merge_window.title("Merge Lists?")
-        merge_window.geometry("480x220")
+        dialog_width, dialog_height = self._scale_geometry(480, 220)
+        merge_window.geometry(f"{dialog_width}x{dialog_height}")
         merge_window.resizable(False, False)
         merge_window.transient(self.root)
         merge_window.grab_set()
@@ -3403,8 +3421,6 @@ class PDFCombinerApp:
         parent_y = self.root.winfo_y()
         parent_width = self.root.winfo_width()
         parent_height = self.root.winfo_height()
-        dialog_width = 480
-        dialog_height = 220
         center_x = parent_x + (parent_width - dialog_width) // 2
         center_y = parent_y + (parent_height - dialog_height) // 2
         merge_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
@@ -4163,6 +4179,7 @@ class PDFCombinerApp:
 
 
 if __name__ == "__main__":
+    _enable_dpi_awareness()
     root = tk.Tk()
     app = PDFCombinerApp(root)
     root.mainloop()
