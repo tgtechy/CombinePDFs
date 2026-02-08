@@ -266,7 +266,15 @@ class PDFCombinerApp:
         ToolTip(rev_hdr, "Reverse the page order of this PDF.\nLast page becomes first, first becomes last.")
         
         # Sub-frame for custom list frame and scrollbar (sized for ~11 rows)
-        listbox_scroll_frame = tk.Frame(list_frame, height=270)
+        listbox_scroll_frame = tk.Frame(
+            list_frame, 
+            height=270,
+            bd=0,
+            relief=tk.FLAT,
+            bg="white",
+            highlightbackground="#CCCCCC",
+            highlightthickness=1
+        )
         listbox_scroll_frame.pack(fill=tk.X)
         listbox_scroll_frame.pack_propagate(False)  # Prevent children from resizing frame
         
@@ -368,7 +376,7 @@ class PDFCombinerApp:
         # Drag and drop instruction
         drag_drop_note = tk.Label(
             input_frame,
-            text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview PDFs or images. Double-click to open a file. Click column headers to sort.",
+            text="After adding files, single click to select a file. Ctrl-Click to select multiple files. Click and drag files to reorder.\nHover to preview PDFs or images. Double-click to open a file. Click filename, size, or date column headers to sort.",
             font=("Arial", 8),
             fg="#666666"
         )
@@ -450,8 +458,21 @@ class PDFCombinerApp:
         
         tk.Label(filename_frame, text="Filename for combined PDF:", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
         
-        filename_entry = tk.Entry(filename_frame, textvariable=self.output_filename, font=("Arial", 9), width=30)
-        filename_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        # Create a bordered frame around the filename entry
+        filename_box = tk.Frame(
+            filename_frame,
+            bd=0,
+            relief=tk.FLAT,
+            bg="white",
+            highlightbackground="#CCCCCC",
+            highlightthickness=1,
+            padx=2,
+            pady=1,
+        )
+        filename_box.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        
+        filename_entry = tk.Entry(filename_box, textvariable=self.output_filename, font=("Arial", 9), width=30, border=0, bg="white")
+        filename_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         filename_entry.bind("<FocusOut>", lambda e: self._validate_filename_on_focus_out())
         
         #tk.Label(filename_frame, text=".pdf", font=("Arial", 9)).pack(side=tk.LEFT)
