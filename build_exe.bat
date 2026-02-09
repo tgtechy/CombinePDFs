@@ -13,34 +13,40 @@ REM Build using the spec file which includes icon and data configurations.
 pyinstaller --noconfirm CombinePDFs.spec
 
 echo.
-echo Computing SHA256 checksum (before icon embedding)...
-
-REM Create temporary PowerShell script
-echo $hash = ^(Get-FileHash 'dist\CombinePDFs.exe' -Algorithm SHA256^).Hash > temp_hash.ps1
-echo Write-Host "SHA256: $hash" >> temp_hash.ps1
-echo $hash ^| Out-File 'dist\SHA256.txt' >> temp_hash.ps1
-
-REM Run the script
-powershell -NoProfile -ExecutionPolicy Bypass -File temp_hash.ps1
-
-REM Clean up
-del temp_hash.ps1
-echo Checksum saved to dist\SHA256.txt
-echo.
+echo Embedding icon into executable...
 
 REM Embed icon using rcedit
 if exist dist\CombinePDFs.exe (
     if exist pdfcombinericon.ico (
-        echo Embedding icon into executable...
         rcedit --set-icon pdfcombinericon.ico dist\CombinePDFs.exe
         echo Icon embedded.
     )
 )
 echo.
 
+echo Building installer with Inno Setup...
 
+REM Try to find and run Inno Setup compiler
+if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" CombinePDFs.iss
+) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
+    "C:\Program Files\Inno Setup 6\ISCC.exe" CombinePDFs.iss
+) else (
+    echo WARNING: Inno Setup not found at expected locations
+    echo Please run Inno Setup manually to compile CombinePDFs.iss
+)
+echo.
 
+echo Computing SHA256 checksum of final installer...
 
+REM Run the hash computation script on the final installer
+REM The .iss output path is determined by OutputDir and OutputBaseFilename
+if exist installer\CombinePDFsInstaller_1.5.0.exe (
+    powershell -NoProfile -ExecutionPolicy Bypass -File compute_hash.ps1 -InstallerPath "installer\CombinePDFsInstaller_1.5.0.exe"
+) else (
+    echo WARNING: Final installer not found. Hash computation skipped.
+)
+echo.
 
-echo Build finished. Output executable is in the "dist" folder as dist\CombinePDFs.exe
+echo Build finished.
 pause

@@ -74,7 +74,7 @@ class PDFCombinerApp:
         self.root.title("PDF Combiner")
         
         # Center window horizontally and align to top
-        window_width, window_height = self._scale_geometry(640, 540)
+        window_width, window_height = self._scale_geometry(740, 540)
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         center_x = int((screen_width - window_width) / 2)
@@ -259,31 +259,31 @@ class PDFCombinerApp:
         num_hdr.pack(side=tk.LEFT, padx=(0, 2))
 
         # Filename header - clickable
-        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=54, anchor='w')
+        self.filename_hdr = tk.Label(header_frame, text="Filename", font=hdr_font, bg="#E0E0E0", width=72, anchor='w')
         self.filename_hdr.pack(side=tk.LEFT)
         self.filename_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('name'))
         self.filename_hdr.bind("<Enter>", lambda e: self.filename_hdr.config(cursor="hand2"))
         self.filename_hdr.bind("<Leave>", lambda e: self.filename_hdr.config(cursor="arrow"))
 
         # File Size header - clickable
-        self.size_hdr = tk.Label(header_frame, text="Size", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
+        self.size_hdr = tk.Label(header_frame, text="Size", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
         self.size_hdr.pack(side=tk.LEFT)
         self.size_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('size'))
         self.size_hdr.bind("<Enter>", lambda e: self.size_hdr.config(cursor="hand2"))
         self.size_hdr.bind("<Leave>", lambda e: self.size_hdr.config(cursor="arrow"))
 
         # Date header - clickable
-        self.date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=11, anchor='w')
+        self.date_hdr = tk.Label(header_frame, text="Date", font=hdr_font, bg="#E0E0E0", width=12, anchor='w')
         self.date_hdr.pack(side=tk.LEFT)
         self.date_hdr.bind("<Button-1>", lambda e: self.on_sort_clicked('date'))
         self.date_hdr.bind("<Enter>", lambda e: self.date_hdr.config(cursor="hand2"))
         self.date_hdr.bind("<Leave>", lambda e: self.date_hdr.config(cursor="arrow"))
         
-        pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=10, anchor='w')
+        pages_hdr = tk.Label(header_frame, text="Pages", font=hdr_font, bg="#E0E0E0", width=7, anchor='w')
         pages_hdr.pack(side=tk.LEFT, padx=(4, 0))
         ToolTip(pages_hdr, "Specify page range to include from this PDF.\nExamples: '1-5', '1,3,5', '1-3,7-9'\nLeave blank or type All to include all pages.")
         
-        rot_hdr = tk.Label(header_frame, text="Rotate", font=hdr_font, bg="#E0E0E0", width=6, anchor='c')
+        rot_hdr = tk.Label(header_frame, text="Rot", font=hdr_font, bg="#E0E0E0", width=7, anchor='c')
         rot_hdr.pack(side=tk.LEFT, padx=2)
         ToolTip(rot_hdr, "Rotate all pages in this PDF.\nOptions: 0°, 90°, 180°, 270°\nclockwise")
         
@@ -1573,7 +1573,7 @@ class PDFCombinerApp:
             
             filename = Path(file_path).name
             # Truncate long filenames so columns remain aligned
-            max_filename_len = 55
+            max_filename_len = 60
             if len(filename) > max_filename_len:
                 filename = filename[: max_filename_len - 3] + "..."
 
@@ -1640,8 +1640,9 @@ class PDFCombinerApp:
             row_fg = "#0052CC" if is_image else "black"
             
             # Create row frame - disable focus to prevent focus-change flicker
-            row_frame = tk.Frame(self.file_list_frame, bg="white", takefocus=0)
+            row_frame = tk.Frame(self.file_list_frame, bg="white", takefocus=0, height=20)
             row_frame.pack(fill=tk.X, padx=0, pady=0, anchor='nw')
+            row_frame.pack_propagate(False)  # Maintain fixed height
             row_frame._index = i
             row_frame._is_selected = False
             
@@ -1657,7 +1658,7 @@ class PDFCombinerApp:
             filename, size_str, date_str = self.get_file_info(file_path)
             
             # Number label
-            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 8), bg="white", fg=row_fg, width=4, anchor='e')
+            num_label = tk.Label(row_frame, text=f"{i+1}", font=("Consolas", 9), bg="white", fg=row_fg, width=4, anchor='e')
             num_label.pack(side=tk.LEFT, padx=(0, 2), pady=0, ipady=0, anchor='nw')
             num_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             num_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1667,7 +1668,7 @@ class PDFCombinerApp:
             num_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Filename label
-            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 8), bg="white", fg=row_fg, width=54, anchor='w', justify=tk.LEFT)
+            filename_label = tk.Label(row_frame, text=filename, font=("Consolas", 9), bg="white", fg=row_fg, width=62, anchor='w', justify=tk.LEFT)
             filename_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             filename_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             filename_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1677,7 +1678,7 @@ class PDFCombinerApp:
             filename_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # File size label
-            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 8), bg="white", fg=row_fg, width=10, anchor='w')
+            size_label = tk.Label(row_frame, text=size_str, font=("Consolas", 9), bg="white", fg=row_fg, width=10, anchor='w')
             size_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             size_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             size_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1687,7 +1688,7 @@ class PDFCombinerApp:
             size_label.bind("<Double-Button-1>", lambda e, idx=i: self.on_row_double_click(e, idx))
             
             # Date label
-            date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 8), bg="white", fg=row_fg, width=11, anchor='w')
+            date_label = tk.Label(row_frame, text=date_str, font=("Consolas", 9), bg="white", fg=row_fg, width=11, anchor='w')
             date_label.pack(side=tk.LEFT, pady=0, ipady=0, anchor='nw')
             date_label.bind("<Button-1>", lambda e, idx=i: self.on_row_click(e, idx))
             date_label.bind("<B1-Motion>", lambda e, idx=i: self.on_row_drag(e, idx))
@@ -1705,8 +1706,8 @@ class PDFCombinerApp:
             page_entry = tk.Entry(
                 row_frame,
                 textvariable=page_range_var,
-                width=10,
-                font=("Consolas", 8),
+                width=7,
+                font=("Consolas", 9),
                 state="disabled" if is_image else "normal",
                 disabledforeground="#999999" if is_image else "black",
                 disabledbackground="#F5F5F5" if is_image else "white"
@@ -1725,23 +1726,26 @@ class PDFCombinerApp:
             page_entry.bind("<Leave>", self.on_row_leave)
             
             # Rotation dropdown
-            rotation_var = tk.StringVar(value=str(rotation))
+            rotation_var = tk.StringVar(value=f"{rotation}°")
             self.rotation_vars[i] = rotation_var
             
             rotation_dropdown = ttk.Combobox(
                 row_frame,
                 textvariable=rotation_var,
-                values=["0", "90", "180", "270"],
+                values=["0°", "90°", "180°", "270°"],
                 width=4,
                 state="readonly",
-                font=("Consolas", 8)
+                font=("Consolas", 9)
             )
             rotation_dropdown.pack(side=tk.LEFT, padx=2, pady=0, ipady=0, anchor='nw')
             
             # Bind rotation change
             def on_rotation_change(var, idx=i):
                 try:
-                    degrees = int(var.get())
+                    value = var.get()
+                    if value.endswith("°"):
+                        value = value[:-1]
+                    degrees = int(value)
                     self.set_rotation(idx, degrees)
                 except ValueError:
                     pass
