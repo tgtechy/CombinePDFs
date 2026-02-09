@@ -1,5 +1,30 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageTk
+def show_splash(root, splash_path, min_time=2000):
+    splash = tk.Toplevel(root)
+    splash.overrideredirect(True)
+    splash.lift()
+    splash.attributes("-topmost", True)
+    # Load splash image
+    img = Image.open(splash_path)
+    img = img.convert("RGBA")
+    splash_img = ImageTk.PhotoImage(img)
+    w, h = splash_img.width(), splash_img.height()
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    x = (screen_w - w) // 2
+    y = (screen_h - h) // 3
+    splash.geometry(f"{w}x{h}+{x}+{y}")
+    label = tk.Label(splash, image=splash_img, borderwidth=0)
+    label.image = splash_img
+    label.pack()
+    root.withdraw()
+    def close_splash():
+        splash.destroy()
+        root.deiconify()
+    root.after(min_time, close_splash)
+    root.update()
 from pathlib import Path
 import sys
 import ctypes
@@ -4185,5 +4210,8 @@ class PDFCombinerApp:
 if __name__ == "__main__":
     _enable_dpi_awareness()
     root = tk.Tk()
+    # Show splash screen before main app loads
+    splash_path = os.path.join(os.path.dirname(__file__), "images", "splashscreen.png")
+    show_splash(root, splash_path)
     app = PDFCombinerApp(root)
     root.mainloop()
