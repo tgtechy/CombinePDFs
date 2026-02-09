@@ -586,27 +586,39 @@ class PDFCombinerApp:
             bookmark_frame,
             text="Add filename bookmarks to the combined PDF",
             variable=self.add_filename_bookmarks,
-            font=("Arial", 9)
+            command=self._save_settings,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        bookmark_checkbox.pack(anchor="w")
+        bookmark_checkbox.pack(anchor="w", padx=0, pady=0)
         ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF, linking to the start of that file's content.\nNote: Source PDF bookmarks are not currently preserved.")
 
         scale_checkbox = tk.Checkbutton(
             bookmark_frame,
             text="Scale all pages to uniform size",
             variable=self.enable_page_scaling,
-            font=("Arial", 9)
+            command=self._save_settings,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        scale_checkbox.pack(anchor="w", pady=(2, 0))
+        scale_checkbox.pack(anchor="w", padx=0, pady=(2, 0))
         ToolTip(scale_checkbox, "Pages will be resized to a uniform size.")
 
         toc_checkbox = tk.Checkbutton(
             bookmark_frame,
             text="Insert Table of Contents page",
             variable=self.insert_toc,
-            font=("Arial", 9)
+            command=self._save_settings,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        toc_checkbox.pack(anchor="w", pady=(2, 0))
+        toc_checkbox.pack(anchor="w", padx=0, pady=(2, 0))
         ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
 
         compression_frame = tk.Frame(bookmark_frame)
@@ -638,9 +650,12 @@ class PDFCombinerApp:
             text="Insert breaker pages between files",
             variable=self.insert_blank_pages,
             command=self._toggle_breaker_page_options,
-            font=("Arial", 9)
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        blank_pages_checkbox.pack(anchor="w")
+        blank_pages_checkbox.pack(anchor="w", padx=0, pady=0)
         ToolTip(blank_pages_checkbox, "Insert a page before each combined file\nwith the filename shown")
         
         # Suboption for breaker pages: uniform size
@@ -648,10 +663,14 @@ class PDFCombinerApp:
             breaker_options_frame,
             text="Make breaker pages a consistent size",
             variable=self.breaker_pages_uniform_size,
+            command=self._save_settings,
             font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0,
             state="disabled"
         )
-        self.breaker_uniform_checkbox.pack(anchor="w", padx=(18, 0))
+        self.breaker_uniform_checkbox.pack(anchor="w", padx=(18, 0), pady=0)
         ToolTip(self.breaker_uniform_checkbox, "When enabled, all breaker pages will be standard letter size.\nWhen disabled, breaker pages match the following content size.")
         self._toggle_breaker_page_options()
 
@@ -659,9 +678,13 @@ class PDFCombinerApp:
             breaker_options_frame,
             text="Ignore blank pages in source files when combining",
             variable=self.delete_blank_pages,
-            font=("Arial", 9)
+            command=self._save_settings,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        blank_detect_checkbox.pack(anchor="w", pady=(4, 0))
+        blank_detect_checkbox.pack(anchor="w", padx=0, pady=(4, 0))
         ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
         
         # Compression moved under TOC checkbox in left column
@@ -676,9 +699,13 @@ class PDFCombinerApp:
             text="Add PDF metadata to combined file",
             variable=self.enable_metadata,
             command=self._toggle_metadata_fields,
-            font=("Arial", 9)
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
         metadata_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
+        ToolTip(metadata_checkbox, "Add custom metadata (title, author, subject, keywords) to the combined PDF.\nThis information is visible in PDF readers and helps with search and identification.")
         
         # Title and Author on one line
         title_author_row = tk.Frame(options_frame)
@@ -719,9 +746,13 @@ class PDFCombinerApp:
             text="Add watermark to pages",
             variable=self.enable_watermark,
             command=self._toggle_watermark_fields,
-            font=("Arial", 9)
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
         watermark_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
+        ToolTip(watermark_checkbox, "Add a visible watermark to every page of the combined PDF.\nYou can customize the text, position, opacity, font size, and rotation.")
         
         # Watermark text and position on same row
         watermark_text_row = tk.Frame(options_frame)
@@ -800,9 +831,13 @@ class PDFCombinerApp:
             watermark_safe_mode_row,
             text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping",
             variable=self.watermark_safe_mode,
-            font=("Arial", 9)
+            command=self._save_settings,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
         )
-        self.watermark_safe_mode_checkbox.pack(side=tk.LEFT, anchor="w")
+        self.watermark_safe_mode_checkbox.pack(side=tk.LEFT, anchor="w", padx=0, pady=0)
         ToolTip(self.watermark_safe_mode_checkbox, "When enabled, automatically reduces font size or adjusts\nposition to prevent watermark text from being clipped\nwhen combined with rotation and edge positioning.")
         
         # Initialize watermark field states
@@ -861,7 +896,7 @@ class PDFCombinerApp:
         quit_button = tk.Button(
             center_frame,
             text="Quit",
-            command=self.save_settings_and_exit,
+            command=self.root.quit,
             bg="#E0E0E0",
             fg="black",
             font=("Arial", 11),
@@ -963,10 +998,6 @@ class PDFCombinerApp:
             cleaned = page_range.strip()
             self.pdf_files[index]['page_range'] = cleaned if cleaned else 'All'
     
-    def save_settings_and_exit(self):
-        self.save_settings()
-        self.root.quit()
-    
     def _load_settings(self):
         """Load saved settings from config file"""
         try:
@@ -1061,10 +1092,12 @@ class PDFCombinerApp:
             # If loading fails, just use defaults
             pass
     
-    def save_settings(self):
-        """Save current settings to config file."""
+    def _save_settings(self):
+        """Save current settings to config file"""
         try:
+            # Ensure config directory exists
             self.config_file.parent.mkdir(parents=True, exist_ok=True)
+            
             settings = {
                 'output_directory': self.output_directory,
                 'add_files_directory': self.add_files_directory,
@@ -1094,13 +1127,14 @@ class PDFCombinerApp:
             with open(self.config_file, 'w') as f:
                 json.dump(settings, f, indent=2)
         except Exception:
+            # Silently fail if we can't save settings
             pass
     
     def _toggle_breaker_page_options(self):
         """Enable or disable breaker page suboptions based on checkbox state"""
         state = tk.NORMAL if self.insert_blank_pages.get() else tk.DISABLED
         self.breaker_uniform_checkbox.config(state=state)
-        self.save_settings()
+        self._save_settings()
     
     def _toggle_metadata_fields(self):
         """Enable or disable metadata entry fields based on checkbox state"""
@@ -1134,7 +1168,7 @@ class PDFCombinerApp:
                 'keywords': self.pdf_keywords.get()
             }
         
-        self.save_settings()
+        self._save_settings()
     
     def _validate_compression_quality(self):
         """Ensure compression quality always has a valid value"""
@@ -1143,7 +1177,7 @@ class PDFCombinerApp:
         if current not in valid_values:
             # Reset to default if invalid or empty
             self.compression_quality.set("Medium")
-            self.save_settings()
+            self._save_settings()
     
     def _save_metadata_values(self):
         """Update last_metadata with current field values and save settings"""
@@ -1153,7 +1187,7 @@ class PDFCombinerApp:
             'subject': self.pdf_subject.get(),
             'keywords': self.pdf_keywords.get()
         }
-        self.save_settings()
+        self._save_settings()
     
     def _validate_rotation(self, index: int, var: tk.StringVar):
         """Ensure rotation dropdown always has a valid value"""
@@ -1190,8 +1224,9 @@ class PDFCombinerApp:
         self.fontsize_scale.config(state=state)
         self.rotation_scale.config(state=state)
         self.watermark_safe_mode_checkbox.config(state=state)
+        self.watermark_position_combo.config(state="readonly" if self.enable_watermark.get() else "disabled")
         
-        self.save_settings()
+        self._save_settings()
     
     def add_files(self):
         """Open file dialog to select PDF and image files"""
@@ -1209,7 +1244,7 @@ class PDFCombinerApp:
         # Update the add files directory for next time if files were selected
         if files:
             self.add_files_directory = str(Path(files[0]).parent)
-            self.save_settings()
+            self._save_settings()
         
         added_count = 0
         duplicate_count = 0
@@ -1474,7 +1509,7 @@ class PDFCombinerApp:
         
         # Update the list files directory for next time
         self.list_files_directory = str(Path(file_path).parent)
-        self.save_settings()
+        self._save_settings()
         
         try:
             # Convert pdf_files to a serializable format
@@ -1509,7 +1544,7 @@ class PDFCombinerApp:
         
         # Update the list files directory for next time
         self.list_files_directory = str(Path(file_path).parent)
-        self.save_settings()
+        self._save_settings()
         
         try:
             # Read JSON file
