@@ -883,7 +883,7 @@ class PDFCombinerApp:
         donate_label = tk.Label(
             left_info_frame,
             text="Like this? Donate!",
-            font=("Arial", 8, "underline"),
+            font=("Arial", 10, "underline"),
             fg="#1A5FB4",
             bg=bottom_frame.cget("bg"),
             cursor="hand2"
@@ -1642,7 +1642,7 @@ class PDFCombinerApp:
             
             placeholder_label = tk.Label(
                 placeholder_frame,
-                text='Click the "Add PDFs/Images" button below to get started\nSupported formats are PDF, JPG, PNG, BMP, GIF, TIFF',
+                text='Click the "Add PDFs/Images" button below to get started\nSupported formats are PDF, JPG, PNG, BMP, GIF, TIFF\n\nClick the tabs at the top to switch between\ninput file selection and output (combining) settings',
                 font=("Arial", 11, "bold"),
                 fg="red",
                 bg="white",

@@ -1,5 +1,8 @@
 # PDF Combiner - Instructions
 
+## Getting Started
+- Use the tabs at the top of the screen to switch between selecting input files, configure the output settings and showing these instructions.
+
 ## Adding Files
 
 - Click **"Add PDFs/Images..."** to select PDF and image files to combine
