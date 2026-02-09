@@ -5,7 +5,12 @@ a = Analysis(
     ['combine_pdfs.py'],
     pathex=[],
     binaries=[],
-    datas=[('pdfcombinericon.png', '.'), ('pdfcombinericon.ico', '.'), ('instructions.md', '.')],
+    datas=[
+        ('pdfcombinericon.png', '.'),
+        ('pdfcombinericon.ico', '.'),
+        ('instructions.md', '.'),
+        ('images/splashscreen.png', 'images'),
+    ],
     hiddenimports=['PyPDF2', 'fitz', 'PIL', 'PIL.Image', 'PIL.ImageTk'],
     hookspath=[],
     hooksconfig={},

@@ -586,7 +586,6 @@ class PDFCombinerApp:
             bookmark_frame,
             text="Add filename bookmarks to the combined PDF",
             variable=self.add_filename_bookmarks,
-            command=self._save_settings,
             font=("Arial", 9)
         )
         bookmark_checkbox.pack(anchor="w")
@@ -596,7 +595,6 @@ class PDFCombinerApp:
             bookmark_frame,
             text="Scale all pages to uniform size",
             variable=self.enable_page_scaling,
-            command=self._save_settings,
             font=("Arial", 9)
         )
         scale_checkbox.pack(anchor="w", pady=(2, 0))
@@ -606,7 +604,6 @@ class PDFCombinerApp:
             bookmark_frame,
             text="Insert Table of Contents page",
             variable=self.insert_toc,
-            command=self._save_settings,
             font=("Arial", 9)
         )
         toc_checkbox.pack(anchor="w", pady=(2, 0))
@@ -651,7 +648,6 @@ class PDFCombinerApp:
             breaker_options_frame,
             text="Make breaker pages a consistent size",
             variable=self.breaker_pages_uniform_size,
-            command=self._save_settings,
             font=("Arial", 9),
             state="disabled"
         )
@@ -663,7 +659,6 @@ class PDFCombinerApp:
             breaker_options_frame,
             text="Ignore blank pages in source files when combining",
             variable=self.delete_blank_pages,
-            command=self._save_settings,
             font=("Arial", 9)
         )
         blank_detect_checkbox.pack(anchor="w", pady=(4, 0))
@@ -805,7 +800,6 @@ class PDFCombinerApp:
             watermark_safe_mode_row,
             text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping",
             variable=self.watermark_safe_mode,
-            command=self._save_settings,
             font=("Arial", 9)
         )
         self.watermark_safe_mode_checkbox.pack(side=tk.LEFT, anchor="w")
@@ -867,7 +861,7 @@ class PDFCombinerApp:
         quit_button = tk.Button(
             center_frame,
             text="Quit",
-            command=self.root.quit,
+            command=self.save_settings_and_exit,
             bg="#E0E0E0",
             fg="black",
             font=("Arial", 11),
@@ -969,6 +963,10 @@ class PDFCombinerApp:
             cleaned = page_range.strip()
             self.pdf_files[index]['page_range'] = cleaned if cleaned else 'All'
     
+    def save_settings_and_exit(self):
+        self.save_settings()
+        self.root.quit()
+    
     def _load_settings(self):
         """Load saved settings from config file"""
         try:
@@ -1063,12 +1061,10 @@ class PDFCombinerApp:
             # If loading fails, just use defaults
             pass
     
-    def _save_settings(self):
-        """Save current settings to config file"""
+    def save_settings(self):
+        """Save current settings to config file."""
         try:
-            # Ensure config directory exists
             self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            
             settings = {
                 'output_directory': self.output_directory,
                 'add_files_directory': self.add_files_directory,
@@ -1098,14 +1094,13 @@ class PDFCombinerApp:
             with open(self.config_file, 'w') as f:
                 json.dump(settings, f, indent=2)
         except Exception:
-            # Silently fail if we can't save settings
             pass
     
     def _toggle_breaker_page_options(self):
         """Enable or disable breaker page suboptions based on checkbox state"""
         state = tk.NORMAL if self.insert_blank_pages.get() else tk.DISABLED
         self.breaker_uniform_checkbox.config(state=state)
-        self._save_settings()
+        self.save_settings()
     
     def _toggle_metadata_fields(self):
         """Enable or disable metadata entry fields based on checkbox state"""
@@ -1139,7 +1134,7 @@ class PDFCombinerApp:
                 'keywords': self.pdf_keywords.get()
             }
         
-        self._save_settings()
+        self.save_settings()
     
     def _validate_compression_quality(self):
         """Ensure compression quality always has a valid value"""
@@ -1148,7 +1143,7 @@ class PDFCombinerApp:
         if current not in valid_values:
             # Reset to default if invalid or empty
             self.compression_quality.set("Medium")
-            self._save_settings()
+            self.save_settings()
     
     def _save_metadata_values(self):
         """Update last_metadata with current field values and save settings"""
@@ -1158,7 +1153,7 @@ class PDFCombinerApp:
             'subject': self.pdf_subject.get(),
             'keywords': self.pdf_keywords.get()
         }
-        self._save_settings()
+        self.save_settings()
     
     def _validate_rotation(self, index: int, var: tk.StringVar):
         """Ensure rotation dropdown always has a valid value"""
@@ -1196,7 +1191,7 @@ class PDFCombinerApp:
         self.rotation_scale.config(state=state)
         self.watermark_safe_mode_checkbox.config(state=state)
         
-        self._save_settings()
+        self.save_settings()
     
     def add_files(self):
         """Open file dialog to select PDF and image files"""
@@ -1214,7 +1209,7 @@ class PDFCombinerApp:
         # Update the add files directory for next time if files were selected
         if files:
             self.add_files_directory = str(Path(files[0]).parent)
-            self._save_settings()
+            self.save_settings()
         
         added_count = 0
         duplicate_count = 0
@@ -1479,7 +1474,7 @@ class PDFCombinerApp:
         
         # Update the list files directory for next time
         self.list_files_directory = str(Path(file_path).parent)
-        self._save_settings()
+        self.save_settings()
         
         try:
             # Convert pdf_files to a serializable format
@@ -1514,7 +1509,7 @@ class PDFCombinerApp:
         
         # Update the list files directory for next time
         self.list_files_directory = str(Path(file_path).parent)
-        self._save_settings()
+        self.save_settings()
         
         try:
             # Read JSON file
