@@ -1642,7 +1642,7 @@ class PDFCombinerApp:
             
             placeholder_label = tk.Label(
                 placeholder_frame,
-                text='Click the "Add PDFs/Images" button below to get started\nSupported formats are PDF, JPG, PNG, BMP, GIF, TIFF\n\nClick the tabs at the top to switch between\ninput file selection and output (combining) settings',
+                text='\n\nClick the "Add PDFs/Images" button below to get started\nSupported formats are PDF, JPG, PNG, BMP, GIF, TIFF\n\nClick the tabs at the top to switch between\ninput file selection and output (combining) settings',
                 font=("Arial", 11, "bold"),
                 fg="red",
                 bg="white",
