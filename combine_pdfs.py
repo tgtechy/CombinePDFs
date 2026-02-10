@@ -39,7 +39,7 @@ import io
 import fitz  # PyMuPDF
 import threading
 
-__VERSION__ = "1.5.0"
+__VERSION__ = "1.6.0"
 
 
 def _enable_dpi_awareness() -> None:
