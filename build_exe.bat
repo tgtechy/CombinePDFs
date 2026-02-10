@@ -2,6 +2,9 @@
 REM Build CombinePDFs into a single Windows executable using PyInstaller
 REM Run this from the project root (double-click or run from PowerShell/CMD)
 
+REM Update version info in .iss and .bat files
+python update_version_info.py
+
 REM Activate virtual environment if it exists
 if exist venv\Scripts\activate.bat (
     call venv\Scripts\activate.bat
@@ -41,8 +44,8 @@ echo Computing SHA256 checksum of final installer...
 
 REM Run the hash computation script on the final installer
 REM The .iss output path is determined by OutputDir and OutputBaseFilename
-if exist installer\CombinePDFsInstaller_1.5.0.exe (
-    powershell -NoProfile -ExecutionPolicy Bypass -File compute_hash.ps1 -InstallerPath "installer\CombinePDFsInstaller_1.5.0.exe"
+if exist installer\CombinePDFsInstaller_1.6.0.exe (
+    powershell -NoProfile -ExecutionPolicy Bypass -File compute_hash.ps1 -InstallerPath "installer\CombinePDFsInstaller_1.6.0.exe"
 ) else (
     echo WARNING: Final installer not found. Hash computation skipped.
 )
