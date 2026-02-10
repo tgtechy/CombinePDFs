@@ -55,9 +55,10 @@ def _enable_dpi_awareness() -> None:
 
 class ToolTip:
     """Create a tooltip for a given widget"""
-    def __init__(self, widget, text):
+    def __init__(self, widget, text, enabled_callback=None):
         self.widget = widget
         self.text = text
+        self.enabled_callback = enabled_callback
         self.tooltip_window = None
         self.widget.bind("<Enter>", self.show_tooltip)
         self.widget.bind("<Leave>", self.hide_tooltip)
@@ -65,14 +66,14 @@ class ToolTip:
     def show_tooltip(self, event=None):
         if self.tooltip_window or not self.text:
             return
+        if self.enabled_callback and not self.enabled_callback():
+            return
         x, y, _, _ = self.widget.bbox("insert") if hasattr(self.widget, 'bbox') else (0, 0, 0, 0)
         x += self.widget.winfo_rootx() + 25
         y += self.widget.winfo_rooty() + 25
-        
         self.tooltip_window = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        
         label = tk.Label(tw, text=self.text, justify=tk.LEFT,
                         background="#ffffe0", relief=tk.SOLID, borderwidth=1,
                         font=("Arial", 9), padx=8, pady=6)
@@ -155,6 +156,7 @@ class PDFCombinerApp:
         self.preview_delay_ms = 400
         self.pending_preview_index = None
         self.preview_enabled = tk.BooleanVar(value=True)  # Preview on hover enabled by default
+        self.tooltips_enabled = tk.BooleanVar(value=True)  # Tooltips enabled by default
         self.add_filename_bookmarks = tk.BooleanVar(value=True)  # Add filename bookmarks enabled by default
         self.insert_blank_pages = tk.BooleanVar(value=False)  # Insert breaker pages between files
         self.breaker_pages_uniform_size = tk.BooleanVar(value=False)  # Make breaker pages uniform size
@@ -573,15 +575,17 @@ class PDFCombinerApp:
         options_frame = tk.LabelFrame(output_content_frame, text="Options", font=("Arial", 9, "bold"))
         options_frame.pack(pady=(0, 0), padx=0, fill=tk.X)
 
+
+
         # Bookmark and breaker page checkboxes on same row
         checkbox_row = tk.Frame(options_frame)
         checkbox_row.pack(fill=tk.X, pady=(0, 2), padx=8)
         checkbox_row.columnconfigure(0, weight=0)
         checkbox_row.columnconfigure(1, weight=1)
-        
+
         bookmark_frame = tk.Frame(checkbox_row)
         bookmark_frame.grid(row=0, column=0, sticky="nw")
-        
+
         bookmark_checkbox = tk.Checkbutton(
             bookmark_frame,
             text="Add filename bookmarks to the combined PDF",
@@ -593,7 +597,7 @@ class PDFCombinerApp:
             pady=0
         )
         bookmark_checkbox.pack(anchor="w", padx=0, pady=0)
-        ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF, linking to the start of that file's content.\nNote: Source PDF bookmarks are not currently preserved.")
+        ToolTip(bookmark_checkbox, "Adds each file's name as a bookmark in the combined\nPDF, linking to the start of that file's content.\nNote: Source PDF bookmarks are not currently preserved.", enabled_callback=lambda: self.tooltips_enabled.get())
 
         scale_checkbox = tk.Checkbutton(
             bookmark_frame,
@@ -606,7 +610,7 @@ class PDFCombinerApp:
             pady=0
         )
         scale_checkbox.pack(anchor="w", padx=0, pady=(2, 0))
-        ToolTip(scale_checkbox, "Pages will be resized to a uniform size.")
+        ToolTip(scale_checkbox, "Pages will be resized to a uniform size.", enabled_callback=lambda: self.tooltips_enabled.get())
 
         toc_checkbox = tk.Checkbutton(
             bookmark_frame,
@@ -619,7 +623,19 @@ class PDFCombinerApp:
             pady=0
         )
         toc_checkbox.pack(anchor="w", padx=0, pady=(2, 0))
-        ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file")
+        ToolTip(toc_checkbox, "Adds a clickable TOC page at the beginning\nwith links to each merged file", enabled_callback=lambda: self.tooltips_enabled.get())
+
+        # Move tooltips enable/disable checkbox here, immediately below TOC
+        tooltips_checkbox = tk.Checkbutton(
+            bookmark_frame,
+            text="Enable tooltips",
+            variable=self.tooltips_enabled,
+            font=("Arial", 9),
+            anchor="w",
+            padx=2,
+            pady=0
+        )
+        tooltips_checkbox.pack(anchor="w", padx=0, pady=(2, 0))
 
         compression_frame = tk.Frame(bookmark_frame)
         compression_frame.pack(anchor="w", pady=(2, 0))
@@ -635,7 +651,7 @@ class PDFCombinerApp:
         compression_combo.pack(side=tk.LEFT)
         compression_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
         compression_combo.bind("<FocusOut>", lambda e: self._validate_compression_quality())
-        ToolTip(compression_combo, "Compresses the combined PDF.\nHigher compression = Smaller filesize but lowers quality")
+        ToolTip(compression_combo, "Compresses the combined PDF.\nHigher compression = Smaller filesize but lowers quality", enabled_callback=lambda: self.tooltips_enabled.get())
 
         breaker_options_frame = tk.Frame(
             checkbox_row,
@@ -656,8 +672,8 @@ class PDFCombinerApp:
             pady=0
         )
         blank_pages_checkbox.pack(anchor="w", padx=0, pady=0)
-        ToolTip(blank_pages_checkbox, "Insert a page before each combined file\nwith the filename shown")
-        
+        ToolTip(blank_pages_checkbox, "Insert a page before each combined file\nwith the filename shown", enabled_callback=lambda: self.tooltips_enabled.get())
+
         # Suboption for breaker pages: uniform size
         self.breaker_uniform_checkbox = tk.Checkbutton(
             breaker_options_frame,
@@ -671,7 +687,7 @@ class PDFCombinerApp:
             state="disabled"
         )
         self.breaker_uniform_checkbox.pack(anchor="w", padx=(18, 0), pady=0)
-        ToolTip(self.breaker_uniform_checkbox, "When enabled, all breaker pages will be standard letter size.\nWhen disabled, breaker pages match the following content size.")
+        ToolTip(self.breaker_uniform_checkbox, "When enabled, all breaker pages will be standard letter size.\nWhen disabled, breaker pages match the following content size.", enabled_callback=lambda: self.tooltips_enabled.get())
         self._toggle_breaker_page_options()
 
         blank_detect_checkbox = tk.Checkbutton(
@@ -685,14 +701,14 @@ class PDFCombinerApp:
             pady=0
         )
         blank_detect_checkbox.pack(anchor="w", padx=0, pady=(4, 0))
-        ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank")
-        
+        ToolTip(blank_detect_checkbox, "When combining all pages: Blank pages will be skipped.\nWhen selecting specific page range(s): All pages in the range\nwill be kept even if they are blank", enabled_callback=lambda: self.tooltips_enabled.get())
+
         # Compression moved under TOC checkbox in left column
 
         # Light separator above metadata section
         metadata_separator = tk.Frame(options_frame, height=1, bg="#D0D0D0")
         metadata_separator.pack(fill=tk.X, padx=8, pady=(6, 4))
-        
+
         # Metadata section
         metadata_checkbox = tk.Checkbutton(
             options_frame,
@@ -705,8 +721,8 @@ class PDFCombinerApp:
             pady=0
         )
         metadata_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
-        ToolTip(metadata_checkbox, "Add custom metadata (title, author, subject, keywords) to the combined PDF.\nThis information is visible in PDF readers and helps with search and identification.")
-        
+        ToolTip(metadata_checkbox, "Add custom metadata (title, author, subject, keywords) to the combined PDF.\nThis information is visible in PDF readers and helps with search and identification.", enabled_callback=lambda: self.tooltips_enabled.get())
+
         # Title and Author on one line
         title_author_row = tk.Frame(options_frame)
         title_author_row.pack(fill=tk.X, pady=1, padx=8)
@@ -714,12 +730,12 @@ class PDFCombinerApp:
         self.title_entry = tk.Entry(title_author_row, textvariable=self.pdf_title, font=("Arial", 9))
         self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
         self.title_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
-        
+
         tk.Label(title_author_row, text="Author:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.author_entry = tk.Entry(title_author_row, textvariable=self.pdf_author, font=("Arial", 9))
         self.author_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         self.author_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
-        
+
         # Subject and Keywords on one line
         subject_keywords_row = tk.Frame(options_frame)
         subject_keywords_row.pack(fill=tk.X, pady=1, padx=8)
@@ -727,15 +743,15 @@ class PDFCombinerApp:
         self.subject_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_subject, font=("Arial", 9))
         self.subject_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
         self.subject_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
-        
+
         tk.Label(subject_keywords_row, text="Keywords:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.keywords_entry = tk.Entry(subject_keywords_row, textvariable=self.pdf_keywords, font=("Arial", 9))
         self.keywords_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         self.keywords_entry.bind("<FocusOut>", lambda e: self._save_metadata_values())
-        
+
         # Initialize metadata field states
         self._toggle_metadata_fields()
-        
+
         # Light separator above watermark section
         watermark_separator = tk.Frame(options_frame, height=1, bg="#D0D0D0")
         watermark_separator.pack(fill=tk.X, padx=8, pady=(6, 4))
@@ -752,8 +768,8 @@ class PDFCombinerApp:
             pady=0
         )
         watermark_checkbox.pack(anchor="w", padx=8, pady=(3, 1))
-        ToolTip(watermark_checkbox, "Add a visible watermark to every page of the combined PDF.\nYou can customize the text, position, opacity, font size, and rotation.")
-        
+        ToolTip(watermark_checkbox, "Add a visible watermark to every page of the combined PDF.\nYou can customize the text, position, opacity, font size, and rotation.", enabled_callback=lambda: self.tooltips_enabled.get())
+
         # Watermark text and position on same row
         watermark_text_row = tk.Frame(options_frame)
         watermark_text_row.pack(fill=tk.X, pady=0, padx=8)
@@ -761,7 +777,7 @@ class PDFCombinerApp:
         self.watermark_text_entry = tk.Entry(watermark_text_row, textvariable=self.watermark_text, font=("Arial", 9))
         self.watermark_text_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
         self.watermark_text_entry.bind("<FocusOut>", lambda e: self._save_settings())
-        
+
         tk.Label(watermark_text_row, text="Position:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.watermark_position_combo = ttk.Combobox(
             watermark_text_row,
@@ -773,11 +789,11 @@ class PDFCombinerApp:
         )
         self.watermark_position_combo.pack(side=tk.LEFT, padx=(5, 0))
         self.watermark_position_combo.bind("<<ComboboxSelected>>", lambda e: self._save_settings())
-        
+
         # Opacity and Font Size on one line
         watermark_sliders_row = tk.Frame(options_frame)
         watermark_sliders_row.pack(fill=tk.X, pady=(1, 1), padx=8)
-        
+
         tk.Label(watermark_sliders_row, text="Opacity:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT)
         self.opacity_scale = tk.Scale(
             watermark_sliders_row,
@@ -792,7 +808,7 @@ class PDFCombinerApp:
             command=lambda e: self._save_settings()
         )
         self.opacity_scale.pack(side=tk.LEFT, padx=(5, 5))
-        
+
         tk.Label(watermark_sliders_row, text="Font Size:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT, padx=(10, 0))
         self.fontsize_scale = tk.Scale(
             watermark_sliders_row,
@@ -807,7 +823,7 @@ class PDFCombinerApp:
             command=lambda e: self._save_settings()
         )
         self.fontsize_scale.pack(side=tk.LEFT, padx=(5, 0))
-        
+
         tk.Label(watermark_sliders_row, text="Rotation:", font=("Arial", 9), width=10, anchor="e").pack(side=tk.LEFT, padx=(10, 0))
         self.rotation_scale = tk.Scale(
             watermark_sliders_row,
@@ -822,11 +838,11 @@ class PDFCombinerApp:
             command=lambda e: self._save_settings()
         )
         self.rotation_scale.pack(side=tk.LEFT, padx=(5, 0))
-        
+
         # Safe Mode checkbox
         watermark_safe_mode_row = tk.Frame(options_frame)
         watermark_safe_mode_row.pack(fill=tk.X, pady=(2, 2), padx=(28, 8))
-        
+
         self.watermark_safe_mode_checkbox = tk.Checkbutton(
             watermark_safe_mode_row,
             text="Safe Mode: Auto-adjust watermark to attempt to prevent clipping",
@@ -838,8 +854,8 @@ class PDFCombinerApp:
             pady=0
         )
         self.watermark_safe_mode_checkbox.pack(side=tk.LEFT, anchor="w", padx=0, pady=0)
-        ToolTip(self.watermark_safe_mode_checkbox, "When enabled, automatically reduces font size or adjusts\nposition to prevent watermark text from being clipped\nwhen combined with rotation and edge positioning.")
-        
+        ToolTip(self.watermark_safe_mode_checkbox, "When enabled, automatically reduces font size or adjusts\nposition to prevent watermark text from being clipped\nwhen combined with rotation and edge positioning.", enabled_callback=lambda: self.tooltips_enabled.get())
+
         # Initialize watermark field states
         self._toggle_watermark_fields()
         
@@ -2921,12 +2937,16 @@ class PDFCombinerApp:
                         
                         # Insert first breaker page if enabled
                         if i == 0 and self.insert_blank_pages.get():
-                            breaker_width = float(pdf_reader.pages[0].mediabox.width) if len(pdf_reader.pages) > 0 else 612
-                            breaker_height = float(pdf_reader.pages[0].mediabox.height) if len(pdf_reader.pages) > 0 else 792
-                            # Swap dimensions if file has 90 or 270 degree rotation
-                            if rotation in [90, 270]:
-                                breaker_width, breaker_height = breaker_height, breaker_width
                             first_filename = Path(file_path).name
+                            if self.breaker_pages_uniform_size.get():
+                                breaker_width = 612.0
+                                breaker_height = 792.0
+                            else:
+                                breaker_width = float(pdf_reader.pages[0].mediabox.width) if len(pdf_reader.pages) > 0 else 612
+                                breaker_height = float(pdf_reader.pages[0].mediabox.height) if len(pdf_reader.pages) > 0 else 792
+                                # Swap dimensions if file has 90 or 270 degree rotation
+                                if rotation in [90, 270]:
+                                    breaker_width, breaker_height = breaker_height, breaker_width
                             breaker_page = self._create_page_with_filename(first_filename, breaker_width, breaker_height)
                             pdf_writer.add_page(breaker_page)
                             current_page_num += 1
@@ -2993,47 +3013,40 @@ class PDFCombinerApp:
                         
                         # Insert breaker page between files if enabled (but not after the last file)
                         if self.insert_blank_pages.get() and i < len(files_to_combine) - 1:
-                            # Get the next file's information
                             next_file_entry = files_to_combine[i + 1]
                             next_file_path = self.get_file_path(next_file_entry)
                             next_filename = Path(next_file_path).name
                             next_rotation = self.get_rotation(next_file_entry)
-                            
-                            # Get breaker page dimensions
-                            blank_width = 612.0
-                            blank_height = 792.0
-                            
-                            # If not using uniform size, match the next file's dimensions
-                            if not self.breaker_pages_uniform_size.get():
+
+                            # Always use uniform size if enabled
+                            if self.breaker_pages_uniform_size.get():
+                                blank_width = 612.0
+                                blank_height = 792.0
+                            else:
+                                # Match the next file's dimensions
+                                blank_width = 612.0
+                                blank_height = 792.0
                                 try:
                                     next_is_image = next_file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'))
-                                    
                                     if next_is_image:
-                                        # Get image dimensions and convert to PDF points
                                         next_img = Image.open(next_file_path)
-                                        # Must use same DPI as _image_to_pdf() method
                                         dpi = 96
-                                        blank_width = (float(next_img.width) / dpi) * 72  # Convert pixels to points
+                                        blank_width = (float(next_img.width) / dpi) * 72
                                         blank_height = (float(next_img.height) / dpi) * 72
-                                        # Swap dimensions if next file has 90 or 270 degree rotation
                                         if next_rotation in [90, 270]:
                                             blank_width, blank_height = blank_height, blank_width
                                     else:
-                                        # Get PDF dimensions
                                         with open(next_file_path, 'rb') as next_pdf_file:
                                             next_pdf_reader = PyPDF2.PdfReader(next_pdf_file)
                                             if len(next_pdf_reader.pages) > 0:
                                                 next_page = next_pdf_reader.pages[0]
                                                 blank_width = float(next_page.mediabox.width)
                                                 blank_height = float(next_page.mediabox.height)
-                                                # Swap dimensions if next file has 90 or 270 degree rotation
                                                 if next_rotation in [90, 270]:
                                                     blank_width, blank_height = blank_height, blank_width
                                 except:
-                                    # Fallback to default letter size if we can't read the next file
                                     pass
-                            
-                            # Create blank page with filename text and add it
+
                             blank_page = self._create_page_with_filename(next_filename, blank_width, blank_height)
                             pdf_writer.add_page(blank_page)
                             current_page_num += 1
