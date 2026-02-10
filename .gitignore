@@ -49,3 +49,4 @@ combine_pdfs.png
 # Build/installer
 CombinePDFs.iss
 update_version_info.py
+compute_hash.ps1

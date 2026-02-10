@@ -42,14 +42,9 @@ try {
     
     # Save in formatted format with header
     $hashContent = @"
-Installer SHA256 Verification Hash
-========================================
-
 File:     $(Split-Path $InstallerPath -Leaf)
 Size:     $fileSizeStr
 Hash:     $hash
-
-========================================
 "@
     $hashContent | Out-File $hashFile -Encoding UTF8
     
