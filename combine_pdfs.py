@@ -1,6 +1,22 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
+from pathlib import Path
+import sys
+import ctypes
+import PyPDF2
+from typing import List, Dict, Optional
+from datetime import datetime
+import os
+import webbrowser
+import json
+from PIL import Image, ImageTk
+import io
+import fitz  # PyMuPDF
+import threading
+
+__VERSION__ = "1.6.3"
+
 def show_splash(root, splash_path, min_time=2000):
     splash = tk.Toplevel(root)
     splash.overrideredirect(True)
@@ -25,22 +41,6 @@ def show_splash(root, splash_path, min_time=2000):
         root.deiconify()
     root.after(min_time, close_splash)
     root.update()
-from pathlib import Path
-import sys
-import ctypes
-import PyPDF2
-from typing import List, Dict, Optional
-from datetime import datetime
-import os
-import webbrowser
-import json
-from PIL import Image, ImageTk
-import io
-import fitz  # PyMuPDF
-import threading
-
-__VERSION__ = "1.6.0"
-
 
 def _enable_dpi_awareness() -> None:
     if os.name != 'nt':
@@ -343,6 +343,11 @@ class PDFCombinerApp:
         
         # Keep focus on canvas to prevent focus-change flicker
         self.file_list_canvas.focus_set()
+
+        # Bind DELETE key to remove selected files
+        def on_delete_key(event):
+            self.remove_file()
+        self.file_list_canvas.bind_all("<Delete>", on_delete_key)
         
         # Inner frame for content
         self.file_list_frame = tk.Frame(self.file_list_canvas, bg="white")
@@ -2772,9 +2777,12 @@ class PDFCombinerApp:
             progress_window,
             text="Preparing to combine PDFs...",
             font=("Arial", 10),
-            pady=10
+            pady=10,
+            wraplength=360,
+            justify=tk.LEFT,
+            anchor="w"
         )
-        progress_label.pack()
+        progress_label.pack(fill="x", padx=10)
         
         # Progress bar
         progress_bar = ttk.Progressbar(
@@ -2901,7 +2909,7 @@ class PDFCombinerApp:
                     
                     # Update progress
                     self.root.after(0, lambda idx=i, f=file_path: (
-                        progress_label.config(text=f"Processing: {Path(f).name}"),
+                        progress_label.config(text=f"Processing: {f}"),
                         progress_bar.config(value=idx),
                         counter_label.config(text=f"{idx} of {len(files_to_combine)} files processed")
                     ))
@@ -3210,22 +3218,153 @@ class PDFCombinerApp:
         # Button frame
         button_frame = tk.Frame(success_window)
         button_frame.pack(pady=10)
-        
-        # Open button
-        open_button = tk.Button(
+
+        def show_log_window():
+            log_window = tk.Toplevel(self.root)
+            log_window.title("Combine Log")
+            dialog_width, dialog_height = self._scale_geometry(900, 500)
+            log_window.resizable(False, False)
+            log_window.transient(self.root)
+            log_window.grab_set()
+            # Center horizontally on screen, top aligned to parent
+            log_window.update_idletasks()
+            screen_width = log_window.winfo_screenwidth()
+            parent_y = self.root.winfo_y()
+            center_x = (screen_width - dialog_width) // 2
+            log_window.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{parent_y}")
+
+            # Title
+            title_label = tk.Label(log_window, text="Combine Log", font=("Arial", 12, "bold"), pady=10)
+            title_label.pack()
+
+            # Frame for text area
+            text_frame = tk.Frame(log_window)
+            text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+            # Scrollbars and text widget
+            yscrollbar = tk.Scrollbar(text_frame, orient=tk.VERTICAL)
+            yscrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            xscrollbar = tk.Scrollbar(text_frame, orient=tk.HORIZONTAL)
+            xscrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+            text_widget = tk.Text(
+                text_frame,
+                wrap=tk.NONE,
+                font=("Consolas", 10),
+                yscrollcommand=yscrollbar.set,
+                xscrollcommand=xscrollbar.set,
+                height=22,
+                width=110
+            )
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            yscrollbar.config(command=text_widget.yview)
+            xscrollbar.config(command=text_widget.xview)
+
+            # Gather file info
+            lines = []
+            lines.append("File List:")
+            lines.append(f"{'#':<3} {'Filename':<40} {'Size':>10} {'Date':<20} {'Pages':<10} {'Rotation':<8} {'Reversed':<8}")
+            lines.append("-" * 120)
+            for idx, file_entry in enumerate(self.pdf_files):
+                path = self.get_file_path(file_entry)
+                try:
+                    stat = os.stat(path)
+                    size = stat.st_size
+                    mtime = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    size = 0
+                    mtime = "?"
+                if size < 1024:
+                    size_str = f"{size} B"
+                elif size < 1024*1024:
+                    size_str = f"{size/1024:.1f} KB"
+                else:
+                    size_str = f"{size/1024/1024:.1f} MB"
+                pages = self.get_page_range(file_entry)
+                rotation = self.get_rotation(file_entry)
+                reversed_ = self.get_reverse(file_entry)
+                lines.append(f"{idx+1:<3} {os.path.basename(path):<40.40} {size_str:>10} {mtime:<20} {pages:<10.10} {str(rotation):<8} {str(reversed_):<8}")
+
+            lines.append("\nSummary:")
+            lines.append(f"File count: {len(self.pdf_files)}")
+            # Option statuses
+            lines.append("")
+            lines.append("Options:")
+            lines.append(f"Compression: {self.compression_quality.get()}")
+            lines.append(f"Bookmarks: {'Enabled' if self.add_filename_bookmarks.get() else 'Disabled'}")
+            lines.append(f"Table of Contents: {'Enabled' if self.insert_toc.get() else 'Disabled'}")
+            watermark_enabled = self.enable_watermark.get()
+            if watermark_enabled:
+                lines.append(f"Watermark: Enabled - '{self.watermark_text.get()}' ({self.watermark_position.get().lower()})")
+            else:
+                lines.append("Watermark: Disabled")
+            lines.append(f"Page Scaling: {'Enabled' if self.enable_page_scaling.get() else 'Disabled'}")
+            lines.append(f"Insert breaker pages: {'Enabled' if self.insert_blank_pages.get() else 'Disabled'}")
+            lines.append(f"Ignore blank pages: {'Enabled' if self.delete_blank_pages.get() else 'Disabled'}")
+            lines.append(f"Add PDF metadata: {'Enabled' if self.enable_metadata.get() else 'Disabled'}")
+            if self.enable_metadata.get():
+                lines.append(f"  Title: {self.pdf_title.get()}")
+                lines.append(f"  Author: {self.pdf_author.get()}")
+                lines.append(f"  Subject: {self.pdf_subject.get()}")
+                lines.append(f"  Keywords: {self.pdf_keywords.get()}")
+            # Combined file info
+            try:
+                stat = os.stat(output_file)
+                combined_size = stat.st_size
+                combined_mtime = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                combined_size = 0
+                combined_mtime = "?"
+            if combined_size < 1024:
+                combined_size_str = f"{combined_size} B"
+            elif combined_size < 1024*1024:
+                combined_size_str = f"{combined_size/1024:.1f} KB"
+            else:
+                combined_size_str = f"{combined_size/1024/1024:.1f} MB"
+            lines.append("")
+            lines.append(f"Combined file: {output_file}")
+            lines.append(f"Combined size: {combined_size_str}")
+            lines.append(f"Combined date: {combined_mtime}")
+
+            text_widget.insert("1.0", "\n".join(lines))
+            text_widget.config(state=tk.DISABLED)
+
+            # Copy to Clipboard button
+            def copy_to_clipboard():
+                log_text = "\n".join(lines)
+                log_window.clipboard_clear()
+                log_window.clipboard_append(log_text)
+                log_window.update()  # Keeps clipboard after window closes
+
+            btn_frame = tk.Frame(log_window)
+            btn_frame.pack(pady=8)
+            copy_btn = tk.Button(btn_frame, text="Copy to Clipboard", command=copy_to_clipboard, width=18, bg="#E0E0E0", fg="black", font=("Arial", 10))
+            copy_btn.pack(side=tk.LEFT, padx=5)
+            close_btn = tk.Button(btn_frame, text="Close", command=log_window.destroy, width=14, bg="#E0E0E0", fg="black", font=("Arial", 10))
+            close_btn.pack(side=tk.LEFT, padx=5)
+        # Show Log button
+        log_button = tk.Button(
             button_frame,
-            text="Open PDF",
-            command=lambda: (
-                success_window.destroy(),
-                self._open_success_file(output_file)
-            ),
+            text="Show Log...",
+            command=show_log_window,
             width=14,
             bg="#E0E0E0",
             fg="black",
             font=("Arial", 10)
         )
-        open_button.grid(row=0, column=0, padx=5)
-        
+        log_button.grid(row=0, column=0, padx=5)
+
+        # Open button
+        open_button = tk.Button(
+            button_frame,
+            text="Open PDF",
+            command=lambda: self._open_success_file(output_file),
+            width=14,
+            bg="#E0E0E0",
+            fg="black",
+            font=("Arial", 10)
+        )
+        open_button.grid(row=0, column=1, padx=5)
+
         # Close button
         close_button = tk.Button(
             button_frame,
@@ -3236,7 +3375,7 @@ class PDFCombinerApp:
             fg="black",
             font=("Arial", 10)
         )
-        close_button.grid(row=0, column=1, padx=5)
+        close_button.grid(row=0, column=2, padx=5)
     
     def _open_success_file(self, output_file):
         """Helper to open the combined PDF file"""
