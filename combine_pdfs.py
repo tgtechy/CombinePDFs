@@ -542,7 +542,10 @@ class CombinePDFsUI:
 
     # Update status bar after file list changes
     def _build_file_list(self, parent: ttk.Frame) -> None:
-        # --- File list subframe for robust scrollbar layout ---
+        # --- File preview popup ---
+        self._preview_popup = None
+        self._preview_popup_img = None
+
         filelist_frame = ttk.Frame(parent)
         filelist_frame.grid(row=0, column=0, sticky="nsew")
         parent.rowconfigure(0, weight=1)
@@ -595,10 +598,94 @@ class CombinePDFsUI:
         filelist_frame.columnconfigure(0, weight=1)
         # Bind double-click to edit cell
         self.tree.bind('<Double-1>', self._on_tree_double_click)
+        # Bind preview events
+        self._preview_after_id = None
+        self.tree.bind('<Motion>', self._on_tree_motion)
+        self.tree.bind('<Leave>', self.hide_preview)
         # --- End file list subframe ---
         self._refresh_tree()
         self._update_status_bar()
         return
+
+    def _on_tree_motion(self, event):
+        if self._preview_after_id:
+            self.tree.after_cancel(self._preview_after_id)
+        self._preview_after_id = self.tree.after(400, lambda: self.show_preview(event))
+
+    def show_preview(self, event):
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            self.hide_preview()
+            return
+        idx = int(iid)
+        entry = self.files[idx]
+        path = entry["path"]
+        ext = os.path.splitext(path)[1].lower()
+        import PIL.Image, PIL.ImageTk
+        preview_img = None
+        preview_text = None
+        if ext in ('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif'):
+            try:
+                img = PIL.Image.open(path)
+                img.thumbnail((240, 240))
+                preview_img = PIL.ImageTk.PhotoImage(img)
+            except Exception as e:
+                preview_text = f"Image preview failed: {e}"
+        elif ext == '.pdf':
+            try:
+                import fitz
+                doc = fitz.open(path)
+                page = doc.load_page(0)
+                pix = page.get_pixmap(matrix=fitz.Matrix(2,2))
+                img = PIL.Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                img.thumbnail((240, 240))
+                preview_img = PIL.ImageTk.PhotoImage(img)
+            except Exception as e:
+                preview_text = f"PDF preview failed: {e}"
+        else:
+            preview_text = "No preview available."
+        if self._preview_popup:
+            self._preview_popup.destroy()
+            self._preview_popup = None
+        self._preview_popup = tk.Toplevel(self.tree)
+        self._preview_popup.overrideredirect(True)
+        self._preview_popup.attributes("-topmost", True)
+        x = self.tree.winfo_pointerx()
+        y = self.tree.winfo_pointery()
+        self._preview_popup.geometry(f"+{x+16}+{y+16}")
+        # Prepare full path and filename label for the bottom
+        preview_width = 240
+        import textwrap
+        chars_per_line = max(22, int(preview_width / 7))
+        wrapped_path = '\n'.join(textwrap.wrap(path, chars_per_line))
+        info_label = tk.Label(
+            self._preview_popup,
+            text=wrapped_path,
+            bg="white",
+            fg="black",
+            font=("Segoe UI", 9, "normal"),
+            anchor="w",
+            justify="left"
+        )
+        # Place preview image or text first
+        if preview_img:
+            self._preview_popup_img = preview_img
+            label = tk.Label(self._preview_popup, image=preview_img, bg="white", bd=2, relief="solid")
+            label.pack()
+        else:
+            label = tk.Label(self._preview_popup, text=preview_text or "No preview", bg="white", bd=2, relief="solid")
+            label.pack()
+        # Now pack the info_label at the bottom
+        info_label.pack(fill="x", padx=4, pady=(4,2), side="bottom")
+
+    def hide_preview(self, event=None):
+        if self._preview_after_id:
+            self.tree.after_cancel(self._preview_after_id)
+            self._preview_after_id = None
+        if self._preview_popup:
+            self._preview_popup.destroy()
+            self._preview_popup = None
+            self._preview_popup_img = None
 
     def _set_tree_headings(self):
         # Add sort indicator to sorted column
@@ -730,17 +817,49 @@ class CombinePDFsUI:
     def _build_file_buttons(self, parent: ttk.Frame) -> None:
         btn_frame = ttk.Frame(parent)
         btn_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(5, 0))
-        for i in range(7):
+        for i in range(8):
             btn_frame.columnconfigure(i, weight=1)
 
         from ttkbootstrap import Button as TBButton
         TBButton(btn_frame, text="Add Files...", command=self.on_add_files, style="WinButton.TButton").grid(row=0, column=0, sticky="w")
-        TBButton(btn_frame, text="Remove Selected", command=self.on_remove_selected, style="WinButton.TButton").grid(row=0, column=1, sticky="w")
-        TBButton(btn_frame, text="Move Up", command=self.on_move_up, style="WinButton.TButton").grid(row=0, column=2, sticky="w")
-        TBButton(btn_frame, text="Move Down", command=self.on_move_down, style="WinButton.TButton").grid(row=0, column=3, sticky="w")
-        TBButton(btn_frame, text="Clear All", command=self.on_clear, style="WinButton.TButton").grid(row=0, column=4, sticky="w")
-        TBButton(btn_frame, text="Save File List", command=self.on_save_file_list, style="WinButton.TButton").grid(row=0, column=5, sticky="w")
-        TBButton(btn_frame, text="Load File List", command=self.on_load_file_list, style="WinButton.TButton").grid(row=0, column=6, sticky="w")
+        TBButton(btn_frame, text="Add Folder...", command=self.on_add_folder, style="WinButton.TButton").grid(row=0, column=1, sticky="w")
+        TBButton(btn_frame, text="Remove Selected", command=self.on_remove_selected, style="WinButton.TButton").grid(row=0, column=2, sticky="w")
+        TBButton(btn_frame, text="Move Up", command=self.on_move_up, style="WinButton.TButton").grid(row=0, column=3, sticky="w")
+        TBButton(btn_frame, text="Move Down", command=self.on_move_down, style="WinButton.TButton").grid(row=0, column=4, sticky="w")
+        TBButton(btn_frame, text="Clear All", command=self.on_clear, style="WinButton.TButton").grid(row=0, column=5, sticky="w")
+        TBButton(btn_frame, text="Save List", command=self.on_save_file_list, style="WinButton.TButton").grid(row=0, column=6, sticky="w")
+        TBButton(btn_frame, text="Load List", command=self.on_load_file_list, style="WinButton.TButton").grid(row=0, column=7, sticky="w")
+    def on_add_folder(self) -> None:
+        from core.file_manager import add_files_to_list, SUPPORTED_EXTS
+        import os
+        folder = filedialog.askdirectory(
+            parent=self.root,
+            title="Select folder to add files from",
+            initialdir=self.settings.last_open_dir or str(ROOT)
+        )
+        if not folder:
+            return
+        self.settings.last_open_dir = folder
+        self._save_app_settings()
+        # Recursively find all supported files
+        file_paths = []
+        for root, dirs, files in os.walk(folder):
+            for fname in files:
+                if fname.lower().endswith(SUPPORTED_EXTS):
+                    file_paths.append(os.path.join(root, fname))
+        if not file_paths:
+            messagebox.showinfo("No supported files", "No PDF or image files found in the selected folder.", parent=self.root)
+            return
+        added, dupes, dupe_names, unsupported, unsupported_names = add_files_to_list(self.files, file_paths)
+        msg = []
+        if dupes:
+            msg.append(f"{dupes} duplicate file(s) skipped: {', '.join(dupe_names)}")
+        if unsupported:
+            msg.append(f"{unsupported} unsupported file(s) skipped: {', '.join(unsupported_names)}")
+        if msg:
+            messagebox.showinfo("Some files skipped", "\n".join(msg), parent=self.root)
+        self._refresh_tree()
+        self._update_status_bar()
 
     def on_remove_selected(self) -> None:
         from core.file_manager import remove_file
