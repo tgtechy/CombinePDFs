@@ -44,8 +44,8 @@ echo Computing SHA256 checksum of final installer...
 
 REM Run the hash computation script on the final installer
 REM The .iss output path is determined by OutputDir and OutputBaseFilename
-if exist installer\CombinePDFsInstaller_1.6.3.exe (
-    powershell -NoProfile -ExecutionPolicy Bypass -File compute_hash.ps1 -InstallerPath "installer\CombinePDFsInstaller_1.6.3.exe"
+if exist installer\CombinePDFsInstaller_2.0.0.exe (
+    powershell -NoProfile -ExecutionPolicy Bypass -File compute_hash.ps1 -InstallerPath "installer\CombinePDFsInstaller_2.0.0.exe"
 ) else (
     echo WARNING: Final installer not found. Hash computation skipped.
 )
