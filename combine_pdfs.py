@@ -351,6 +351,7 @@ class CombinePDFsUI:
         self._save_app_settings()
     
     def _setup_styles(self):
+        style = tb.Style()
         # Patch ttkbootstrap palette to force all buttons to use light gray background and black text
         style = tb.Style()
         # The following palette patch is disabled due to incompatibility with recent ttkbootstrap versions
@@ -395,6 +396,30 @@ class CombinePDFsUI:
             bordercolor=[('selected', '#a9a9a9'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
             font=[('selected', ('Segoe UI', 9, 'normal')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
             padding=[('selected', [18, 6]), ('active', [18, 6]), ('!selected', [18, 6])],
+        )
+
+        # Custom style for settings notebook (General, Watermark, etc.)
+        style.configure('Settings.TNotebook',
+            borderwidth=2,
+            relief='ridge',
+            background='#f7f7f7',
+        )
+        style.configure('Settings.TNotebook.Tab',
+            padding=[16, 5],
+            background="#f7f7f7",
+            borderwidth=1,
+            relief='flat',
+            foreground='black',
+            font=('Segoe UI', 9, 'normal'),
+            lightcolor='#e1e1e1',
+            bordercolor='#a9a9a9',
+        )
+        style.map('Settings.TNotebook.Tab',
+            background=[('selected', "#e6f0ff"), ('active', "#e1e1e1"), ('!selected', "#f7f7f7")],
+            foreground=[('selected', '#003366'), ('active', 'black'), ('!selected', '#888888')],
+            bordercolor=[('selected', '#003366'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
+            font=[('selected', ('Segoe UI', 10, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
+            padding=[('selected', [16, 2]), ('active', [16, 2]), ('!selected', [16, 2])],
         )
 
         # Set ttk.Checkbutton background to match window background
@@ -1207,7 +1232,7 @@ class CombinePDFsUI:
     def _build_settings_notebook(self, parent: ttk.Frame) -> None:
         print(">>> BUILDING SETTINGS NOTEBOOK")
 
-        nb = ttk.Notebook(parent)
+        nb = ttk.Notebook(parent, style='Settings.TNotebook')
         nb.grid(row=0, column=0, sticky="nsew", pady=(10,10 ))
 
         parent.rowconfigure(0, weight=1)
@@ -1221,13 +1246,12 @@ class CombinePDFsUI:
         self._build_tab_encryption(nb)
 
     def _build_tab_encryption(self, nb: ttk.Notebook) -> None:
+
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
         nb.add(frame, text="Encryption")
 
         # Enable encryption checkbox
         self.var_encrypt_enabled = tk.BooleanVar(value=False)
-        cb_bg = "#dcdad5"
-        cb_fg = "#000000"
         enable_cb = ttk.Checkbutton(frame, text="Encrypt merged file", variable=self.var_encrypt_enabled)
         enable_cb.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
@@ -1239,12 +1263,20 @@ class CombinePDFsUI:
 
         self._encryption_controls = []
 
+        # User password group
+        user_pw_group = ttk.LabelFrame(frame, text="User Password", padding=(12, 8, 12, 8))
+        user_pw_group.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        user_pw_group.columnconfigure(1, weight=1)
 
+        # Owner password group
+        owner_pw_group = ttk.LabelFrame(frame, text="Owner Password", padding=(12, 8, 12, 8))
+        owner_pw_group.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        owner_pw_group.columnconfigure(1, weight=1)
 
         # Helper to add password entry with eye icon aligned right
-        def add_pw_row(label, row, var, padx=(32,0), pady=(0,0)):
-            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=pady)
-            entry_frame = ttk.Frame(frame)
+        def add_pw_row(parent, label, row, var, padx=(8,0), pady=(0,0)):
+            ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=pady)
+            entry_frame = ttk.Frame(parent)
             entry_frame.grid(row=row, column=1, sticky="ew", pady=pady, padx=padx)
             entry_frame.columnconfigure(0, weight=1)
             entry = ttk.Entry(entry_frame, textvariable=var, show="*", width=38)
@@ -1259,15 +1291,14 @@ class CombinePDFsUI:
             self._encryption_controls.append(entry)
             return entry
 
-        user_pw_entry = add_pw_row("User Password:", 1, self.var_encrypt_user_pw)
-        user_pw2_entry = add_pw_row("Retype User Password:", 2, self.var_encrypt_user_pw2)
-        # Add extra vertical space before Owner password rows
-        owner_pw_entry = add_pw_row("Permissions (Owner) Password:", 4, self.var_encrypt_owner_pw, pady=(24,0))
-        owner_pw2_entry = add_pw_row("Retype Owner Password:", 5, self.var_encrypt_owner_pw2)
+        user_pw_entry = add_pw_row(user_pw_group, "User Password:", 0, self.var_encrypt_user_pw)
+        user_pw2_entry = add_pw_row(user_pw_group, "Retype User Password:", 1, self.var_encrypt_user_pw2)
+        owner_pw_entry = add_pw_row(owner_pw_group, "Permissions (Owner) Password:", 0, self.var_encrypt_owner_pw)
+        owner_pw2_entry = add_pw_row(owner_pw_group, "Retype Owner Password:", 1, self.var_encrypt_owner_pw2)
 
         # Warning label for mismatched passwords
         self.encrypt_pw_warning = ttk.Label(frame, text="", foreground="red")
-        self.encrypt_pw_warning.grid(row=6, column=0, columnspan=2, sticky="w", pady=(5, 0))
+        self.encrypt_pw_warning.grid(row=3, column=0, columnspan=2, sticky="w", pady=(5, 0))
         self._encryption_controls.append(self.encrypt_pw_warning)
 
         frame.columnconfigure(1, weight=1)
