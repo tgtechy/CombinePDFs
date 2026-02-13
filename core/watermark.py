@@ -16,7 +16,8 @@ def add_watermark(
     font_size: int,
     rotation: int,
     position: str,
-    safe_mode: bool
+    safe_mode: bool,
+    font_color: str = "#000000"
 ):
     """
     Draw a rotated, semi-transparent watermark onto a PDF page.
@@ -74,20 +75,40 @@ def add_watermark(
         c = canvas.Canvas(packet, pagesize=(width, height))
         c.setFillAlpha(opacity)
         c.setFont("Helvetica-Bold", adjusted_font_size)
-        c.setFillGray(0.5)
+        from reportlab.lib.colors import HexColor
+        c.setFillColor(HexColor(font_color))
 
         c.saveState()
 
         # Positioning
-        if adjusted_position == "top":
+        if adjusted_position == "top-left":
+            c.translate(60, height * 0.85)
+            c.rotate(rotation)
+            c.drawString(0, 0, text)
+        elif adjusted_position == "top-right":
+            c.translate(width - 60, height * 0.85)
+            c.rotate(rotation)
+            c.drawRightString(0, 0, text)
+        elif adjusted_position == "bottom-left":
+            c.translate(60, height * 0.15)
+            c.rotate(rotation)
+            c.drawString(0, 0, text)
+        elif adjusted_position == "bottom-right":
+            c.translate(width - 60, height * 0.15)
+            c.rotate(rotation)
+            c.drawRightString(0, 0, text)
+        elif adjusted_position == "top":
             c.translate(width / 2, height * 0.85)
+            c.rotate(rotation)
+            c.drawCentredString(0, 0, text)
         elif adjusted_position == "bottom":
             c.translate(width / 2, height * 0.15)
+            c.rotate(rotation)
+            c.drawCentredString(0, 0, text)
         else:
             c.translate(width / 2, height / 2)
-
-        c.rotate(rotation)
-        c.drawCentredString(0, 0, text)
+            c.rotate(rotation)
+            c.drawCentredString(0, 0, text)
         c.restoreState()
         c.save()
 

@@ -48,6 +48,7 @@ def insert_toc_pages(pdf_path: str, toc_entries: list[dict]):
                 "total_pages": total_pages
             })
 
+        num_toc_pages = len(toc_pages_data)
         # ------------------------------------------------------------------
         # Insert TOC pages at the beginning (reverse order)
         # ------------------------------------------------------------------
@@ -89,7 +90,7 @@ def insert_toc_pages(pdf_path: str, toc_entries: list[dict]):
                     filename = filename[:max_filename_length - 3] + "..."
 
                 # Destination page index after TOC insertion
-                dest_page_index = entry["page"] + len(toc_pages_data)
+                dest_page_index = entry["page"] + num_toc_pages
 
                 entry_text = filename
                 page_text = f"Page {dest_page_index + 1}"
