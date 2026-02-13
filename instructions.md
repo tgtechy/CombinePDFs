@@ -62,7 +62,7 @@ Status Bar
 The bottom status bar shows the full path of the file you are currently hovering over.
 
 Memory Considerations
-Each PDF is loaded entirely into memory, so RAM can be a bottleneck. Try to keep individual PDF sizes under 1 GB for reliable performance.
+Each PDF is loaded entirely into memory, so RAM can be a bottleneck. Try to keep individual PDF sizes under 100Mb for reliable performance.
 
 Number of PDFs to Combine
 There is no hard-coded limit, but more than 100 files may be combined depending on their sizes. The app processes files sequentially, so performance depends on available RAM, the combined size of all source PDFs, and the accumulated pages in the PdfWriter object before writing to disk.
@@ -71,7 +71,7 @@ Combined Output Size
 The combined PDF can be as large as your disk space and available RAM allow. Large combined PDFs (1000+ pages or multiple large files) may cause slow progress updates, high memory usage during compression, and long write times.
 
 Real-World Guidelines
-Source PDFs: Keep each file under 1 GB for smooth operation.
+Source PDFs: Keep each file under 100Mb for smooth operation.
 Number of files: Combining 2–50 files is very reliable; 50–100+ may slow down depending on size.
 
 Key Factors Affecting Performance

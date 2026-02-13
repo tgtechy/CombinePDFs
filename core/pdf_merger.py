@@ -25,7 +25,7 @@ class MergeOptions:
     add_filename_bookmarks: bool = False   # ← ADD THIS
 
     compression_enabled: bool = False
-    compression_quality: int = 75
+    compression_level: str = "Medium"
 
     watermark_enabled: bool = False
     watermark_text: str = ""
@@ -354,10 +354,9 @@ def merge_files(
         progress_callback(len(files), len(files), "Writing combined PDF...")
 
     with open(out_path, "wb") as out_file:
-        compression_level = options.compression_quality
-        if compression_level != "None":
+        if options.compression_enabled:
             for page in pdf_writer.pages:
-                compress_page(page, compression_level)
+                compress_page(page, options.compression_level)
         pdf_writer.write(out_file)
 
     # Insert TOC pages (PyMuPDF) before encryption

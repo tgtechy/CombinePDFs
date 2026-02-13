@@ -1,6 +1,106 @@
 from __future__ import annotations
 print(">>> RUNNING combine_pdfs.py FROM:", __file__)
 
+# ---------------------------------------------------------------------------
+# Reusable helpers for widget state and custom dialogs
+# ---------------------------------------------------------------------------
+import tkinter as tk
+from tkinter import ttk
+from typing import List, Optional
+
+def set_widgets_state(widgets: List[tk.Widget], enabled: bool):
+    """Enable or disable a list of Tkinter widgets."""
+    state = "normal" if enabled else "disabled"
+    for w in widgets:
+        try:
+            w.config(state=state)
+        except Exception:
+            pass
+
+def show_custom_dialog(
+    parent,
+    title: str,
+    message: str,
+    icon: Optional[str] = None,  # path to image or emoji
+    buttons: List[str] = ["OK"],
+    default: Optional[str] = None,
+    cancel: Optional[str] = None,
+    width: int = 420,
+    height: int = 180,
+    wraplength: int = 320,
+    style: Optional[str] = None,
+) -> str:
+    """Show a custom dialog with message, icon, and custom buttons. Returns the label of the button pressed."""
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.transient(parent)
+    dlg.grab_set()
+    dlg.resizable(False, False)
+    # Set icon if available
+    try:
+        from pathlib import Path
+        icon_path = Path(__file__).resolve().parent / "pdfcombinericon.ico"
+        if icon_path.exists():
+            dlg.iconbitmap(str(icon_path))
+    except Exception:
+        pass
+    # Center dialog
+    parent.update_idletasks()
+    px = parent.winfo_rootx()
+    py = parent.winfo_rooty()
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+    x = px + (pw // 2) - (width // 2)
+    y = py + (ph // 2) - (height // 2)
+    dlg.geometry(f"{width}x{height}+{x}+{y}")
+    bg = parent.cget('background')
+    dlg.configure(bg=bg)
+    dlg.columnconfigure(1, weight=1)
+    # Icon
+    icon_label = None
+    if icon and isinstance(icon, str):
+        if icon.endswith(('.png', '.gif')):
+            try:
+                img = tk.PhotoImage(file=icon)
+                icon_label = tk.Label(dlg, image=img, bg=bg)
+                icon_label.image = img
+            except Exception:
+                icon_label = tk.Label(dlg, text="!", font=("Segoe UI", 24, "bold"), fg="red", bg=bg)
+        else:
+            icon_label = tk.Label(dlg, text=icon, font=("Segoe UI", 24, "bold"), fg="red", bg=bg)
+    if not icon_label:
+        icon_label = tk.Label(dlg, text="!", font=("Segoe UI", 24, "bold"), fg="red", bg=bg)
+    icon_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
+    # Message
+    msg_label = tk.Label(
+        dlg,
+        text=message,
+        font=("Segoe UI", 11),
+        bg=bg,
+        anchor="w",
+        justify="left",
+        wraplength=wraplength
+    )
+    msg_label.grid(row=0, column=1, columnspan=2, sticky="w", padx=(0, 16), pady=(24, 24))
+    # Buttons
+    result = [None]
+    def on_btn(label):
+        result[0] = label
+        dlg.destroy()
+    btn_frame = ttk.Frame(dlg)
+    btn_frame.grid(row=1, column=0, columnspan=3, pady=(0, 24))
+    for i, label in enumerate(buttons):
+        btn = ttk.Button(btn_frame, text=label, command=lambda l=label: on_btn(l), style=style or "WinButton.TButton", width=14)
+        btn.grid(row=0, column=i, padx=(0 if i == 0 else 12, 0))
+        if default and label == default:
+            btn.focus_set()
+        if cancel and label == cancel:
+            dlg.protocol("WM_DELETE_WINDOW", lambda: on_btn(cancel))
+    if not cancel:
+        dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+    dlg.wait_window()
+    return result[0]
+
 import os
 import sys
 import threading
@@ -99,6 +199,7 @@ CONFIG_PATH = get_user_config_path()
 class AppSettings:
     last_open_dir: str = ""
     last_save_dir: str = ""
+    output_filename: str = ""
 
     # General
     delete_blank_pages: bool = False
@@ -109,7 +210,7 @@ class AppSettings:
 
     # Compression
     compression_enabled: bool = False
-    compression_quality: int = 75
+    compression_level: str = "Medium"
 
     # Watermark
     watermark_enabled: bool = False
@@ -240,9 +341,13 @@ class CombinePDFsUI:
         )
         if not path:
             return
+        # Ensure .pdf extension
+        if not path.lower().endswith('.pdf'):
+            path += '.pdf'
         self.output_var.set(path)
         if hasattr(self.settings, 'last_save_dir'):
             self.settings.last_save_dir = os.path.dirname(path)
+        self.settings.output_filename = path
         self._save_app_settings()
     
     def _setup_styles(self):
@@ -357,7 +462,7 @@ class CombinePDFsUI:
             self.settings.breaker_uniform_size = self.var_breaker_uniform.get()
             self.settings.add_filename_bookmarks = self.var_add_filename_bookmarks.get()
             self.settings.compression_enabled = self.var_comp_enabled.get()
-            self.settings.compression_quality = int(self.var_comp_quality.get())
+            self.settings.compression_level = self.var_comp_level.get()
             self.settings.watermark_enabled = self.var_wm_enabled.get()
             self.settings.watermark_text = self.var_wm_text.get()
             self.settings.watermark_opacity = float(self.var_wm_opacity.get())
@@ -477,8 +582,14 @@ class CombinePDFsUI:
         bottom.columnconfigure(1, weight=1)
 
         ttk.Label(bottom, text="Output file:").grid(row=0, column=0, sticky="w")
-        self.output_var = tk.StringVar()
-        ttk.Entry(bottom, textvariable=self.output_var).grid(row=0, column=1, sticky="ew", padx=4)
+        # Initialize output_var from settings and persist changes
+        self.output_var = tk.StringVar(value=getattr(self.settings, 'output_filename', ''))
+        output_entry = ttk.Entry(bottom, textvariable=self.output_var)
+        output_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        def on_output_var_change(*args):
+            self.settings.output_filename = self.output_var.get()
+            self._save_app_settings()
+        self.output_var.trace_add('write', on_output_var_change)
         # Use bootstyle for Windows-like button in light mode
         from ttkbootstrap import Button as TBButton
         TBButton(bottom, text="Browse...", command=self.on_browse_output, style="WinButton.TButton").grid(row=0, column=2)
@@ -1018,10 +1129,10 @@ class CombinePDFsUI:
             return result[0]
 
         if show_clear_all_dialog(self.root):
-            from core.file_manager import clear_files
-            clear_files(self.files)
-            self._refresh_tree()
-            self._update_status_bar()
+                from core.file_manager import clear_files
+                clear_files(self.files)
+                self._refresh_tree()
+                self._update_status_bar()
 
     # -----------------------------------------------------------------------
     # File list callbacks
@@ -1066,7 +1177,7 @@ class CombinePDFsUI:
             if failed_files:
                 messagebox.showerror(
                     "File(s) could not be loaded",
-                    "The following file(s) could not be loaded:\n\n" + "\n".join(failed_files),
+                    "The following file(s) could not be loaded:\n\n" + "\n".join(failed_files) + "\n\nMake sure they are unencrypted and have\na supported extension (.pdf, .png, etc)",
                     parent=self.root
                 )
         elif msg:
@@ -1151,12 +1262,7 @@ class CombinePDFsUI:
         frame.columnconfigure(1, weight=1)
 
         def set_encryption_controls_state(enabled):
-            state = "normal" if enabled else "disabled"
-            for widget in self._encryption_controls:
-                try:
-                    widget.config(state=state)
-                except Exception:
-                    pass
+            set_widgets_state(self._encryption_controls, enabled)
             if not enabled:
                 self.var_encrypt_user_pw.set("")
                 self.var_encrypt_user_pw2.set("")
@@ -1235,10 +1341,8 @@ class CombinePDFsUI:
         ttk.Checkbutton(frame, text="Add filename bookmarks", variable=self.var_add_filename_bookmarks).grid(row=4, column=0, sticky="w", pady=checkbox_pady)
 
     def _on_breaker_pages_toggle(self):
-        if self.var_add_breaker_pages.get():
-            self.breaker_uniform_cb.configure(state="normal")
-        else:
-            self.breaker_uniform_cb.configure(state="disabled")
+        set_widgets_state([self.breaker_uniform_cb], self.var_add_breaker_pages.get())
+        if not self.var_add_breaker_pages.get():
             self.var_breaker_uniform.set(False)
 
     def _build_tab_watermark(self, nb: ttk.Notebook) -> None:
@@ -1427,12 +1531,7 @@ class CombinePDFsUI:
         frame.grid_columnconfigure(1, weight=1)
 
         def set_wm_controls_state(enabled):
-            state = "normal" if enabled else "disabled"
-            for widget in self._wm_controls:
-                try:
-                    widget.config(state=state)
-                except Exception:
-                    pass
+            set_widgets_state(self._wm_controls, enabled)
         def on_wm_enabled(*args):
             set_wm_controls_state(self.var_wm_enabled.get())
         self.var_wm_enabled.trace_add('write', lambda *a: on_wm_enabled())
@@ -1478,12 +1577,7 @@ class CombinePDFsUI:
         frame.columnconfigure(1, weight=1)
 
         def set_meta_controls_state(enabled):
-            state = "normal" if enabled else "disabled"
-            for widget in self._meta_controls:
-                try:
-                    widget.config(state=state)
-                except Exception:
-                    pass
+            set_widgets_state(self._meta_controls, enabled)
         def on_meta_enabled(*args):
             set_meta_controls_state(self.var_meta_enabled.get())
         self.var_meta_enabled.trace_add('write', lambda *a: on_meta_enabled())
@@ -1522,12 +1616,7 @@ class CombinePDFsUI:
         frame.columnconfigure(1, weight=1)
 
         def set_scaling_controls_state(enabled):
-            state = "normal" if enabled else "disabled"
-            for widget in self._scaling_controls:
-                try:
-                    widget.config(state=state)
-                except Exception:
-                    pass
+            set_widgets_state(self._scaling_controls, enabled)
         def on_scaling_enabled(*args):
             set_scaling_controls_state(self.var_scale_enabled.get())
         self.var_scale_enabled.trace_add('write', lambda *a: on_scaling_enabled())
@@ -1537,72 +1626,24 @@ class CombinePDFsUI:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
         nb.add(frame, text="Compression")
 
+        # Add compression info note
+        note = ttk.Label(frame, text="Note: Higher compression levels result in lower quality images.", foreground="red", font=("Segoe UI", 9, "italic"))
+        note.grid(row=0, column=2, sticky="w", padx=(16,0), pady=(0, 12))
 
         self.var_comp_enabled = tk.BooleanVar(value=self.settings.compression_enabled)
-        self.var_comp_quality = tk.IntVar(value=self.settings.compression_quality)
+        self.var_comp_level = tk.StringVar(value=getattr(self.settings, 'compression_level', 'Medium'))
 
         def on_comp_enabled_toggle(*args):
-            state = "normal" if self.var_comp_enabled.get() else "disabled"
-            slider.state([state] if state == "disabled" else ["!disabled"])
-            self.comp_quality_value_label.config(state=state)
+            enabled = self.var_comp_enabled.get()
+            set_widgets_state([comp_level_combo], enabled)
 
         cb_bg = "#dcdad5"
         cb_fg = "#000000"
         ttk.Checkbutton(frame, text="Compress merged PDF", variable=self.var_comp_enabled, command=on_comp_enabled_toggle).grid(row=0, column=0, sticky="w", pady=(0, 12))
 
-        ttk.Label(frame, text="Quality (0–100):").grid(row=1, column=0, sticky="w", pady=(0, 8))
-        # Value label to show slider value
-        self.comp_quality_value_label = ttk.Label(frame, text=str(self.var_comp_quality.get()), width=4)
-        self.comp_quality_value_label.grid(row=1, column=2, sticky="w", padx=(6,0), pady=(0, 8))
-
-        def update_quality_label(val):
-            rounded = int(round(float(val) / 10.0) * 10)
-            rounded = min(max(rounded, 0), 100)
-            if self.var_comp_quality.get() != rounded:
-                self.var_comp_quality.set(rounded)
-            self.comp_quality_value_label.config(text=str(rounded))
-            # Only set slider if value differs, and avoid recursion
-            if abs(slider.get() - rounded) > 0.1:
-                slider.set(rounded)
-
-        # Custom scale with increments of 10
-        class SnapScale(ttk.Scale):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.bind('<ButtonRelease-1>', self._snap)
-                self.bind('<KeyRelease>', self._snap)
-            def _snap(self, event=None):
-                val = self.get()
-                rounded = int(round(val / 10.0) * 10)
-                rounded = min(max(rounded, 0), 100)
-                # Only set if value differs
-                if abs(val - rounded) > 0.1:
-                    self.set(rounded)
-
-        slider = SnapScale(
-            frame,
-            from_=0,
-            to=100,
-            orient="horizontal",
-            variable=self.var_comp_quality,
-            command=update_quality_label
-        )
-        slider.grid(row=1, column=1, sticky="ew", pady=(0, 8))
-        slider.set(self.var_comp_quality.get())
-
-        # Add tick marks and descriptive labels under the slider
-        tick_frame = ttk.Frame(frame)
-        tick_frame.grid(row=2, column=1, sticky="ew", pady=(0, 12))
-        tick_frame.columnconfigure(0, weight=1)
-        tick_frame.columnconfigure(1, weight=1)
-        tick_frame.columnconfigure(2, weight=1)
-        # Place labels at left and right
-        min_label = ttk.Label(tick_frame, text="0 - Minimum Comp, Best Quality", anchor="w")
-        min_label.grid(row=0, column=0, sticky="w")
-        center_label = ttk.Label(tick_frame, text="|", anchor="center")
-        center_label.grid(row=0, column=1)
-        max_label = ttk.Label(tick_frame, text="Maximum Comp, Lowest Quality - 100", anchor="e")
-        max_label.grid(row=0, column=2, sticky="e")
+        ttk.Label(frame, text="Compression Level:").grid(row=1, column=0, sticky="w", pady=(0, 8))
+        comp_level_combo = ttk.Combobox(frame, textvariable=self.var_comp_level, values=["Low", "Medium", "High", "Maximum"], state="readonly", width=12)
+        comp_level_combo.grid(row=1, column=1, sticky="w", padx=(0, 8), pady=(0, 8))
 
         frame.columnconfigure(1, weight=1)
 
@@ -1709,7 +1750,7 @@ class CombinePDFsUI:
         self.settings.add_filename_bookmarks = self.var_add_filename_bookmarks.get()
 
         self.settings.compression_enabled = self.var_comp_enabled.get()
-        self.settings.compression_quality = int(self.var_comp_quality.get())
+        self.settings.compression_level = self.var_comp_level.get()
 
         self.settings.watermark_enabled = self.var_wm_enabled.get()
         self.settings.watermark_text = self.var_wm_text.get()
@@ -1749,7 +1790,7 @@ class CombinePDFsUI:
             insert_toc=self.settings.insert_toc,
 
             compression_enabled=self.settings.compression_enabled,
-            compression_quality=self.settings.compression_quality,
+            compression_level=self.settings.compression_level,
 
             watermark_enabled=self.settings.watermark_enabled,
             watermark_text=self.settings.watermark_text,
@@ -1789,86 +1830,31 @@ class CombinePDFsUI:
             return
 
         output_path = self.output_var.get().strip()
+        # Ensure .pdf extension
+        if output_path and not output_path.lower().endswith('.pdf'):
+            output_path += '.pdf'
+            self.output_var.set(output_path)
+            self.settings.output_filename = output_path
+            self._save_app_settings()
         if not output_path:
             messagebox.showwarning("No output", "Please choose an output file.", parent=self.root)
             return
 
         # Check if output file exists before starting merge
         if os.path.exists(output_path):
-            def show_file_exists_dialog(parent, filename):
-                dlg = tk.Toplevel(parent)
-                dlg.title("File Exists")
-                dlg.transient(parent)
-                dlg.grab_set()
-                dlg.resizable(False, False)
-                # Set icon if available
-                icon_path = Path(__file__).resolve().parent / "pdfcombinericon.ico"
-                if icon_path.exists():
-                    try:
-                        dlg.iconbitmap(str(icon_path))
-                    except Exception:
-                        pass
-                # Set size and center
-                width, height = 520, 210
-                parent.update_idletasks()
-                root_x = parent.winfo_rootx()
-                root_y = parent.winfo_rooty()
-                root_w = parent.winfo_width()
-                root_h = parent.winfo_height()
-                x = root_x + (root_w // 2) - (width // 2)
-                y = root_y + (root_h // 2) - (height // 2)
-                dlg.geometry(f"{width}x{height}+{x}+{y}")
-                bg = parent.cget('background')
-                dlg.configure(bg=bg)
-                dlg.columnconfigure(1, weight=1)
-                # Warning icon
-                try:
-                    warning_img = tk.PhotoImage(file=str(Path(__file__).resolve().parent / "images" / "warning.png"))
-                except Exception:
-                    warning_img = None
-                if warning_img:
-                    icon_label = tk.Label(dlg, image=warning_img, bg=bg)
-                    icon_label.image = warning_img
-                    icon_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
-                else:
-                    icon_label = tk.Label(dlg, text="!", font=("Segoe UI", 24, "bold"), fg="red", bg=bg)
-                    icon_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
-                # Message
-                msg = f"The file '{filename}' already exists.\nDo you want to overwrite it?"
-                msg_label = tk.Label(
-                    dlg,
-                    text=msg,
-                    font=("Segoe UI", 11),
-                    bg=bg,
-                    anchor="w",
-                    justify="left",
-                    wraplength=320
-                )
-                msg_label.grid(row=0, column=1, columnspan=2, sticky="w", padx=(0, 16), pady=(24, 24))
-                # Buttons
-                result = [None]
-                def on_overwrite():
-                    result[0] = "overwrite"
-                    dlg.destroy()
-                def on_cancel():
-                    result[0] = "cancel"
-                    dlg.destroy()
-                # Button frame for centering
-                btn_frame = ttk.Frame(dlg)
-                btn_frame.grid(row=1, column=0, columnspan=3, pady=(0, 24))
-                btn_frame.columnconfigure(0, weight=1)
-                btn_frame.columnconfigure(1, weight=1)
-                btn_width = 14
-                btn_overwrite = ttk.Button(btn_frame, text="Overwrite", command=on_overwrite, style="WinButton.TButton", width=btn_width)
-                btn_overwrite.grid(row=0, column=0, padx=(0, 12))
-                btn_cancel = ttk.Button(btn_frame, text="Cancel", command=on_cancel, style="WinButton.TButton", width=btn_width)
-                btn_cancel.grid(row=0, column=1, padx=(12, 0))
-                dlg.protocol("WM_DELETE_WINDOW", on_cancel)
-                dlg.wait_window()
-                return result[0]
-
-            result = show_file_exists_dialog(self.root, output_path)
-            if result != "overwrite":
+            warning_img_path = str(Path(__file__).resolve().parent / "images" / "warning.png")
+            result = show_custom_dialog(
+                self.root,
+                title="File Exists",
+                message=f"The file '{output_path}' already exists.\nDo you want to overwrite it?",
+                icon=warning_img_path,
+                buttons=["Overwrite", "Cancel"],
+                default="Cancel",
+                cancel="Cancel",
+                width=520,
+                height=210
+            )
+            if result != "Overwrite":
                 return
 
         entries: List[FileEntry] = [
@@ -1882,6 +1868,19 @@ class CombinePDFsUI:
         ]
 
         options = self._collect_options()
+
+        # Prevent encryption if passwords do not match
+        if options.encrypt_enabled:
+            user_pw1 = self.var_encrypt_user_pw.get()
+            user_pw2 = self.var_encrypt_user_pw2.get()
+            owner_pw1 = self.var_encrypt_owner_pw.get()
+            owner_pw2 = self.var_encrypt_owner_pw2.get()
+            if user_pw1 != user_pw2:
+                messagebox.showerror("Password Mismatch", "User passwords do not match.", parent=self.root)
+                return
+            if owner_pw1 != owner_pw2:
+                messagebox.showerror("Password Mismatch", "Owner passwords do not match.", parent=self.root)
+                return
 
         # Progress dialog + background thread
         self._progress_dialog = ProgressDialog(self.root, title="Merging PDFs...")
@@ -1997,7 +1996,7 @@ class CombinePDFsUI:
                 pass
 
         # Set a taller, more compact size
-        width, height = 420, 220
+        width, height = 440, 300
         dlg.geometry(f"{width}x{height}")
 
         # Center the dialog in the parent window
@@ -2011,17 +2010,41 @@ class CombinePDFsUI:
         dlg.geometry(f"{width}x{height}+{x}+{y}")
 
         bg = dlg.cget("background")
-        dlg.columnconfigure(0, weight=1)
+        dlg.columnconfigure(1, weight=1)
         dlg.rowconfigure(0, weight=1)
-        dlg.rowconfigure(1, weight=1)
+        dlg.rowconfigure(1, weight=0)
+        dlg.rowconfigure(2, weight=0)
+
+        # Add check.png icon
+        check_img_path = Path(__file__).resolve().parent / "images" / "check.png"
+        check_label = None
+        if check_img_path.exists():
+            try:
+                check_img = tk.PhotoImage(file=str(check_img_path))
+                check_label = tk.Label(dlg, image=check_img, bg=bg)
+                check_label.image = check_img
+            except Exception:
+                check_label = tk.Label(dlg, text="✔", font=("Segoe UI", 24, "bold"), fg="green", bg=bg)
+        else:
+            check_label = tk.Label(dlg, text="✔", font=("Segoe UI", 24, "bold"), fg="green", bg=bg)
+        check_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
+
         info = (
             f"Merged PDF created successfully.\n\n"
             f"Files combined: {file_count}\n"
             f"Output size: {size_str}\n"
             f"Saved as: {fullpath}"
         )
-        label = ttk.Label(dlg, text=info, font=("Segoe UI", 10), anchor="center", justify="center", background=bg)
-        label.grid(row=0, column=0, columnspan=2, padx=10, pady=(18, 8), sticky="nsew")
+        msg_label = tk.Label(
+            dlg,
+            text=info,
+            font=("Segoe UI", 10),
+            bg=bg,
+            anchor="w",
+            justify="left",
+            wraplength=300
+        )
+        msg_label.grid(row=0, column=1, columnspan=2, sticky="w", padx=(0, 16), pady=(24, 24))
 
         def open_pdf():
             try:
@@ -2038,7 +2061,7 @@ class CombinePDFsUI:
 
         from ttkbootstrap import Button as TBButton
         btn_frame = tk.Frame(dlg, bg=bg, bd=0, highlightthickness=0)
-        btn_frame.grid(row=1, column=0, columnspan=2, pady=(0, 12), sticky="nsew")
+        btn_frame.grid(row=2, column=0, columnspan=3, pady=(0, 18), sticky="sew")
         btn_frame.columnconfigure(0, weight=1)
         btn_frame.columnconfigure(1, weight=1)
         open_btn = TBButton(btn_frame, text="Open PDF", command=open_pdf, width=14, style="WinButton.TButton")

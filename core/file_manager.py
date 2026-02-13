@@ -24,6 +24,7 @@ def is_pdf_readable(path: str) -> Tuple[bool, str | None]:
         return True, None
 
 
+
 def add_file(file_list: List[Dict], path: str) -> bool:
     """
     Add a single file entry if not already present.
@@ -71,6 +72,8 @@ def add_files_to_list(
         if lower.endswith(".pdf"):
             ok, err = is_pdf_readable(file)
             if not ok:
+                unsupported_count += 1
+                unsupported_files.append(Path(file).name)
                 continue
 
         # Duplicate check
