@@ -889,7 +889,12 @@ class CombinePDFsUI:
             top = tk.Toplevel(self.tree)
             top.overrideredirect(True)
             top.geometry(f"{width}x{height}+{abs_x}+{abs_y}")
-            var = tk.StringVar(value=entry.get("page_range", "All"))
+            # If no page_range is set or is 'All', show blank; else retain existing value
+            current_range = entry.get("page_range", "")
+            if not current_range or current_range.strip().lower() == "all":
+                var = tk.StringVar(value="")
+            else:
+                var = tk.StringVar(value=current_range)
             entry_widget = tk.Entry(top, textvariable=var)
             entry_widget.pack(fill="both", expand=True)
             entry_widget.focus_set()
@@ -899,7 +904,7 @@ class CombinePDFsUI:
                 self._refresh_tree()
                 top.destroy()
             entry_widget.bind('<Return>', on_commit)
-            entry_widget.bind('<FocusOut>', lambda e: top.destroy())
+            entry_widget.bind('<FocusOut>', on_commit)
 
         # Rotation (Combobox)
         elif col_index == 4:
@@ -930,12 +935,18 @@ class CombinePDFsUI:
 
         # Reverse (Checkbox)
         elif col_index == 5:
+            # Add padding to geometry for better centering
+            pad_x, pad_y = 4, 2
+            popup_width = width + pad_x * 2
+            popup_height = height + pad_y * 2
             top = tk.Toplevel(self.tree)
             top.overrideredirect(True)
-            top.geometry(f"{width}x{height}+{abs_x}+{abs_y}")
+            top.geometry(f"{popup_width}x{popup_height}+{abs_x-pad_x}+{abs_y-pad_y}")
             var = tk.BooleanVar(value=entry.get("reverse", False))
-            cb = ttk.Checkbutton(top, variable=var, text="")
-            cb.pack(fill="both", expand=True)
+            frame = ttk.Frame(top)
+            frame.pack(fill="both", expand=True)
+            cb = ttk.Checkbutton(frame, variable=var, text="", style="TCheckbutton")
+            cb.pack(anchor="center", pady=pad_y)
             cb.focus_set()
 
             def on_commit(event=None):
