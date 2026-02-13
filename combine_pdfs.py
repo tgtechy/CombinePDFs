@@ -701,20 +701,20 @@ class CombinePDFsUI:
             "size": "Size",
             "date": "Date",
             "page_range": "Pages",
-            "rotation": "Rotation",
-            "reverse": "Reverse",
+            "rotation": "Rot",
+            "reverse": "Rev",
         }
         self._set_tree_headings()
         # Set column widths and stretch
         # Dynamically size columns to fill the width of the file list box
         total_width = 800  # Approximate initial width of the file list area
         col_widths = {
-            "path": int(total_width * 0.47),      # File name gets the most space
+            "path": int(total_width * 0.55),      # File name gets the most space
             "size": int(total_width * 0.08),      # Size
             "date": int(total_width * 0.1),      # Date Modified
             "page_range": int(total_width * 0.08),# Pages
-            "rotation": int(total_width * 0.07),  # Rotation
-            "reverse": int(total_width * 0.09),   # Reverse
+            "rotation": int(total_width * 0.04),  # Rotation
+            "reverse": int(total_width * 0.04),   # Reverse
         }
         for col, width in col_widths.items():
             self.tree.column(col, width=width, anchor=("w" if col=="path" else "center"), stretch=True)
@@ -1732,7 +1732,7 @@ class CombinePDFsUI:
                 tags = ('imagefile',)
             # Show 'N/A' for Pages and Reverse for images
             page_range_val = entry.get("page_range", "All") if not is_image else "N/A"
-            reverse_val = ("Yes" if entry.get("reverse", False) else "No") if not is_image else "N/A"
+            reverse_val = ("\u2713" if entry.get("reverse", False) else "\u00D7") if not is_image else "-"
             self.tree.insert(
                 "",
                 "end",
@@ -2110,29 +2110,25 @@ class CombinePDFsUI:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
-            # Validate loaded data and use add_files_to_list for checks
-            new_files = []
-            paths = []
+            # Validate loaded data: only keep dicts with a path and supported extension
+            from core.file_manager import SUPPORTED_EXTS
+            valid_files = []
+            unsupported_files = []
             for entry in loaded:
                 if isinstance(entry, dict) and "path" in entry:
-                    # Retain per-file attributes if present
-                    new_files.append({
-                        "path": entry["path"],
-                        "page_range": entry.get("page_range", "All"),
-                        "rotation": entry.get("rotation", 0),
-                        "reverse": entry.get("reverse", False),
-                    })
-                    paths.append(entry["path"])
-            # Clear current list, then add loaded files using file_manager logic
+                    if any(entry["path"].lower().endswith(e) for e in SUPPORTED_EXTS):
+                        valid_files.append({
+                            "path": entry["path"],
+                            "page_range": entry.get("page_range", "All"),
+                            "rotation": entry.get("rotation", 0),
+                            "reverse": entry.get("reverse", False),
+                        })
+                    else:
+                        unsupported_files.append(entry["path"])
             self.files.clear()
-            added, dupes, dupe_names, unsupported, unsupported_names = add_files_to_list(self.files, paths)
-            msg = []
-            if dupes:
-                msg.append(f"{dupes} duplicate file(s) skipped: {', '.join(dupe_names)}")
-            if unsupported:
-                msg.append(f"{unsupported} unsupported file(s) skipped: {', '.join(unsupported_names)}")
-            if msg:
-                messagebox.showinfo("Some files skipped", "\n".join(msg), parent=self.root)
+            self.files.extend(valid_files)
+            if unsupported_files:
+                messagebox.showinfo("Some files skipped", "Unsupported file(s) skipped:\n" + "\n".join(unsupported_files), parent=self.root)
             self._refresh_tree()
             self._update_status_bar()
         except Exception as e:
