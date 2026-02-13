@@ -9,7 +9,7 @@ A free, standalone Windows 10/11 program to combine two or more PDF files into o
   <img src="images/inputtab.png" width="400">
 </p>
 <p align="left">
-  <img src="images/outputtab.png" width="400">
+  <img src="images/optionstab1.png" width="400">
 </p>
 
 # Windows Installation and Use
