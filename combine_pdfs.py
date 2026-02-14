@@ -205,7 +205,7 @@ class AppSettings:
 
     # General
     delete_blank_pages: bool = False
-    insert_toc: bool = False
+    insert_toc: bool = True
     breaker_uniform_size: bool = False
     add_filename_bookmarks: bool = False
     add_breaker_pages: bool = False
@@ -628,7 +628,7 @@ class CombinePDFsUI:
         self.output_var.trace_add('write', on_output_var_change)
         # Use bootstyle for Windows-like button in light mode
         from ttkbootstrap import Button as TBButton
-        TBButton(bottom, text="Browse...", command=self.on_browse_output, style="WinButton.TButton").grid(row=0, column=2)
+        TBButton(bottom, text="Browse...", command=self.on_browse_output, style="WinButton.TButton", width=12).grid(row=0, column=2)
         # Remove Merge button from here
 
 
@@ -1677,24 +1677,36 @@ class CombinePDFsUI:
 
         ttk.Checkbutton(frame, text="Insert metadata into combined file", variable=self.var_meta_enabled).grid(row=0, column=0, sticky="w", pady=(0, 12))
 
-        ttk.Label(frame, text="Title:").grid(row=1, column=0, sticky="w", pady=(0, 8))
-        meta_title_entry = ttk.Entry(frame, textvariable=self.var_meta_title)
-        meta_title_entry.grid(row=1, column=1, sticky="ew", pady=(0, 8))
+        # Title row
+        title_row = ttk.Frame(frame)
+        title_row.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(title_row, text="Title:", width=12, anchor="w").pack(side="left", padx=0)
+        meta_title_entry = ttk.Entry(title_row, textvariable=self.var_meta_title, width=40)
+        meta_title_entry.pack(side="left", fill="x", expand=True)
         self._meta_controls.append(meta_title_entry)
 
-        ttk.Label(frame, text="Author:").grid(row=2, column=0, sticky="w", pady=(0, 8))
-        meta_author_entry = ttk.Entry(frame, textvariable=self.var_meta_author)
-        meta_author_entry.grid(row=2, column=1, sticky="ew", pady=(0, 8))
+        # Author row
+        author_row = ttk.Frame(frame)
+        author_row.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(author_row, text="Author:", width=12, anchor="w").pack(side="left", padx=0)
+        meta_author_entry = ttk.Entry(author_row, textvariable=self.var_meta_author, width=40)
+        meta_author_entry.pack(side="left", fill="x", expand=True)
         self._meta_controls.append(meta_author_entry)
 
-        ttk.Label(frame, text="Subject:").grid(row=3, column=0, sticky="w", pady=(0, 8))
-        meta_subject_entry = ttk.Entry(frame, textvariable=self.var_meta_subject)
-        meta_subject_entry.grid(row=3, column=1, sticky="ew", pady=(0, 8))
+        # Subject row
+        subject_row = ttk.Frame(frame)
+        subject_row.grid(row=3, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(subject_row, text="Subject:", width=12, anchor="w").pack(side="left", padx=0)
+        meta_subject_entry = ttk.Entry(subject_row, textvariable=self.var_meta_subject, width=40)
+        meta_subject_entry.pack(side="left", fill="x", expand=True)
         self._meta_controls.append(meta_subject_entry)
 
-        ttk.Label(frame, text="Keywords:").grid(row=4, column=0, sticky="w", pady=(0, 8))
-        meta_keywords_entry = ttk.Entry(frame, textvariable=self.var_meta_keywords)
-        meta_keywords_entry.grid(row=4, column=1, sticky="ew", pady=(0, 8))
+        # Keywords row
+        keywords_row = ttk.Frame(frame)
+        keywords_row.grid(row=4, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(keywords_row, text="Keywords:", width=12, anchor="w").pack(side="left", padx=0)
+        meta_keywords_entry = ttk.Entry(keywords_row, textvariable=self.var_meta_keywords, width=40)
+        meta_keywords_entry.pack(side="left", fill="x", expand=True)
         self._meta_controls.append(meta_keywords_entry)
 
         frame.columnconfigure(1, weight=1)
@@ -1733,9 +1745,28 @@ class CombinePDFsUI:
         self._scaling_controls.append(scale_mode_combo)
 
         ttk.Label(frame, text="Percent:").grid(row=2, column=0, sticky="w", pady=(0, 8))
-        scale_percent_entry = ttk.Entry(frame, textvariable=self.var_scale_percent, width=10)
-        scale_percent_entry.grid(row=2, column=1, sticky="w", pady=(0, 8))
-        self._scaling_controls.append(scale_percent_entry)
+        percent_frame = ttk.Frame(frame)
+        percent_frame.grid(row=2, column=1, sticky="w", pady=(0, 8))
+        def on_slider_move(val):
+            val = int(round(float(val)))
+            self.var_scale_percent.set(val)
+        scale_percent_slider = ttk.Scale(percent_frame, from_=1, to=100, orient="horizontal", variable=self.var_scale_percent, length=260, command=on_slider_move)
+        scale_percent_slider.pack(side="left")
+        percent_value_label = ttk.Label(percent_frame, textvariable=self.var_scale_percent, width=4)
+        percent_value_label.pack(side="left", padx=(8,0))
+        self._scaling_controls.append(scale_percent_slider)
+        self._scaling_controls.append(percent_value_label)
+
+        def update_percent_slider_state(*args):
+            if self.var_scale_mode.get() == "Percent" and self.var_scale_enabled.get():
+                scale_percent_slider.state(["!disabled"])
+                percent_value_label.state(["!disabled"])
+            else:
+                scale_percent_slider.state(["disabled"])
+                percent_value_label.state(["disabled"])
+
+        self.var_scale_mode.trace_add('write', update_percent_slider_state)
+        self.var_scale_enabled.trace_add('write', update_percent_slider_state)
 
         frame.columnconfigure(1, weight=1)
 
@@ -1745,6 +1776,7 @@ class CombinePDFsUI:
             set_scaling_controls_state(self.var_scale_enabled.get())
         self.var_scale_enabled.trace_add('write', lambda *a: on_scaling_enabled())
         set_scaling_controls_state(self.var_scale_enabled.get())
+        update_percent_slider_state()
 
     def _build_tab_compression(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))

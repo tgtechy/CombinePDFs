@@ -273,12 +273,19 @@ def merge_files(
                 page.rotate(rotation)
 
             # Scaling
-            if (
-                options.scaling_enabled
-                and max_width > 0
-                and max_height > 0
-            ):
-                scale_page(page, max_width, max_height)
+            if options.scaling_enabled:
+                if options.scaling_mode == "Percent":
+                    # Scale by percent (relative to current size)
+                    percent = max(1, min(100, options.scaling_percent))
+                    box = page.mediabox
+                    current_width = float(box.width)
+                    current_height = float(box.height)
+                    scale = percent / 100.0
+                    target_width = current_width * scale
+                    target_height = current_height * scale
+                    scale_page(page, target_width, target_height)
+                elif max_width > 0 and max_height > 0:
+                    scale_page(page, max_width, max_height)
 
             # Watermark
             if (
