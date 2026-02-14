@@ -1,6 +1,6 @@
 # PDFCombiner - Merge Several PDF Documents into a Single PDF Document
 
-A free, standalone Windows 10/11 program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks and more.
+A free, standalone Windows 10/11 program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks and more. Nothing uploaded/downloaded to the internet! Very intuitive with a clean, understandable layout.
 <p align="left">
   <img src="images/splashscreen_small.png" width="400">
 </p>
