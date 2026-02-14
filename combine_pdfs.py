@@ -391,10 +391,10 @@ class CombinePDFsUI:
             bordercolor='#a9a9a9',
         )
         style.map('Custom.TNotebook.Tab',
-            background=[('selected', "#ffffff"), ('active', "#e1e1e1"), ('!selected', "#f7f7f7")],
+            background=[('selected', '#e6f0ff'), ('active', '#e1e1e1'), ('!selected', '#f7f7f7')],
             foreground=[('selected', 'black'), ('active', 'black'), ('!selected', '#888888')],
-            bordercolor=[('selected', '#a9a9a9'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
-            font=[('selected', ('Segoe UI', 9, 'normal')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
+            bordercolor=[('selected', '#1976d2'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
+            font=[('selected', ('Segoe UI', 9, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
             padding=[('selected', [18, 6]), ('active', [18, 6]), ('!selected', [18, 6])],
         )
 
