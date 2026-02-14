@@ -1274,7 +1274,8 @@ class CombinePDFsUI:
     def _build_tab_encryption(self, nb: ttk.Notebook) -> None:
 
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="Encryption")
+        # Add a Unicode lock icon to the left of 'Encryption'
+        nb.add(frame, text="🔒 Encryption")
 
         # Enable encryption checkbox
         self.var_encrypt_enabled = tk.BooleanVar(value=False)
@@ -1372,7 +1373,8 @@ class CombinePDFsUI:
 
     def _build_tab_general(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="General")
+        # Add a Unicode page icon to the left of 'General'
+        nb.add(frame, text="📄 General")
         self.var_add_breaker_pages = tk.BooleanVar(value=self.settings.add_breaker_pages)
         self.var_breaker_uniform = tk.BooleanVar(value=self.settings.breaker_uniform_size)
         self.var_delete_blank = tk.BooleanVar(value=self.settings.delete_blank_pages)
@@ -1426,7 +1428,8 @@ class CombinePDFsUI:
                 self.settings.watermark_font_color = color[1]
         self.var_wm_safe = tk.BooleanVar(value=self.settings.watermark_safe_mode)
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="Watermark")
+        # Add a Unicode raindrop icon to the left of 'Watermark'
+        nb.add(frame, text="💧 Watermark")
 
         # --- Controls to be enabled/disabled ---
         self._wm_controls = []
@@ -1607,7 +1610,8 @@ class CombinePDFsUI:
 
     def _build_tab_metadata(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="Metadata")
+        # Add a Unicode label icon to the left of 'Metadata'
+        nb.add(frame, text="🏷 Metadata")
 
         self.var_meta_enabled = tk.BooleanVar(value=self.settings.metadata_enabled)
         self.var_meta_title = tk.StringVar(value=self.settings.pdf_title)
@@ -1653,7 +1657,8 @@ class CombinePDFsUI:
 
     def _build_tab_scaling(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="Scaling")
+        # Add a Unicode ruler icon to the left of 'Scaling'
+        nb.add(frame, text="📏 Scaling")
 
         self.var_scale_enabled = tk.BooleanVar(value=self.settings.scaling_enabled)
         self.var_scale_mode = tk.StringVar(value=self.settings.scaling_mode)
@@ -1692,7 +1697,8 @@ class CombinePDFsUI:
 
     def _build_tab_compression(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
-        nb.add(frame, text="Compression")
+        # Add a Unicode zipper icon to the left of 'Compression'
+        nb.add(frame, text="🗜 Compression")
 
         # Add compression info note
         note = ttk.Label(frame, text="Note: Higher compression levels result in lower quality images.", foreground="red", font=("Segoe UI", 9, "italic"))
