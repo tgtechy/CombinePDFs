@@ -317,6 +317,15 @@ class ProgressDialog:
 # ---------------------------------------------------------------------------
 
 class CombinePDFsUI:
+    def _validate_page_range(self, value):
+        """Validate the page range string. Accepts 'All', single numbers, or comma/colon-separated ranges (e.g., '1', '1-3', '1,3,5', '2-4,7'). Returns True if valid, else False."""
+        value = value.strip()
+        if not value or value.lower() == 'all':
+            return True
+        import re
+        # Accept numbers, ranges, and commas (e.g., 1,2,3, 1-3, 2:5)
+        pattern = r'^(\d+([\-:]\d+)?)(\s*,\s*\d+([\-:]\d+)?)*$'
+        return bool(re.fullmatch(pattern, value))
     
     def _get_selected_index(self):
         """Return the first selected index in the file list as int, or None if nothing is selected."""
@@ -418,7 +427,7 @@ class CombinePDFsUI:
             background=[('selected', "#e6f0ff"), ('active', "#e1e1e1"), ('!selected', "#f7f7f7")],
             foreground=[('selected', '#003366'), ('active', 'black'), ('!selected', '#888888')],
             bordercolor=[('selected', '#003366'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
-            font=[('selected', ('Segoe UI', 10, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
+            font=[('selected', ('Segoe UI', 9, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
             padding=[('selected', [16, 2]), ('active', [16, 2]), ('!selected', [16, 2])],
         )
 
@@ -924,12 +933,29 @@ class CombinePDFsUI:
             entry_widget.pack(fill="both", expand=True)
             entry_widget.focus_set()
 
-            def on_commit(event=None):
-                entry["page_range"] = var.get()
+            # Use a flag to ensure only one dialog is shown
+            dialog_shown = {'value': False}
+
+            def validate_and_commit(event=None):
+                if dialog_shown['value']:
+                    return
+                value = var.get().strip()
+                if not value:
+                    value = "All"
+                if not self._validate_page_range(value):
+                    dialog_shown['value'] = True
+                    import tkinter.messagebox as messagebox
+                    messagebox.showerror("Invalid Page Range", "Please enter a valid page range (e.g., 'All', '1', '1-3', '2,4,6', '1:5').", parent=self.root)
+                    top.destroy()
+                    # Reselect the row that produced the error
+                    self.tree.selection_set(str(idx))
+                    self.tree.see(str(idx))
+                    return
+                entry["page_range"] = value
                 self._refresh_tree()
                 top.destroy()
-            entry_widget.bind('<Return>', on_commit)
-            entry_widget.bind('<FocusOut>', on_commit)
+            entry_widget.bind('<Return>', validate_and_commit)
+            entry_widget.bind('<FocusOut>', validate_and_commit)
 
         # Rotation (Combobox)
         elif col_index == 4:
@@ -1733,7 +1759,7 @@ class CombinePDFsUI:
                 bg = "white"
             self._filelist_instruction_label = tk.Label(
                 parent,
-                text="*** Quickstart ***\n\nClick 'Add Files' , 'Add Folder' or 'Load File List' to specify individual files to be combined.\n\nSet combining options using Options & Settings.\n\nSpecify the output filename for the merged file.\n\nFinally, click 'Merge' to merge the files.",
+                text="*** Quickstart ***\n\nClick 'Add Files' , 'Add Folder' or 'Load File List' to specify individual files to be combined.\n\nSet combining options using Options & Settings.\n\nSpecify the output filename for the merged file.\n\nFinally, click 'Merge' to merge the files into a single PDF.",
                 bg=bg,
                 anchor="center",
                 justify="center"
@@ -2144,17 +2170,27 @@ class CombinePDFsUI:
             # Extract all file paths from loaded list
             paths = []
             extra_info = {}
+            import os
             for entry in loaded:
                 if isinstance(entry, dict) and "path" in entry:
-                    paths.append(entry["path"])
-                    extra_info[entry["path"]] = {
+                    file_path = entry["path"]
+                    if not os.path.exists(file_path):
+                        # Mark as unsupported/unreadable if missing
+                        continue  # Will be reported below
+                    paths.append(file_path)
+                    extra_info[file_path] = {
                         "page_range": entry.get("page_range", "All"),
                         "rotation": entry.get("rotation", 0),
                         "reverse": entry.get("reverse", False),
                     }
+            # Add missing files to unsupported_names for reporting
+            missing_files = [entry["path"] for entry in loaded if isinstance(entry, dict) and "path" in entry and not os.path.exists(entry["path"])]
             self.files.clear()
             # Use add_files_to_list to check all files
             added, dupes, dupe_names, unsupported, unsupported_names = add_files_to_list(self.files, paths)
+            # Add missing files to unsupported_names for reporting
+            all_unsupported = set(unsupported_names)
+            all_unsupported.update(missing_files)
             # Restore extra info for successfully added files
             for entry in self.files:
                 info = extra_info.get(entry["path"])
@@ -2165,8 +2201,8 @@ class CombinePDFsUI:
             msg = []
             if dupes:
                 msg.append(f"{dupes} duplicate file(s) skipped: {', '.join(dupe_names)}")
-            if unsupported:
-                msg.append(f"{unsupported} unsupported or unreadable file(s) skipped: {', '.join(unsupported_names)}")
+            if all_unsupported:
+                msg.append(f"{len(all_unsupported)} unsupported, unreadable, or missing file(s) skipped: {', '.join(all_unsupported)}")
             if msg:
                 messagebox.showinfo("Some files skipped", "\n".join(msg), parent=self.root)
             self._refresh_tree()
