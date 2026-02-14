@@ -10,6 +10,8 @@ a = Analysis(
         ('pdfcombinericon.ico', '.'),
         ('instructions.md', '.'),
         ('images/splashscreen.png', 'images'),
+        ('images/warning.png', 'images'),
+        ('images/check.png', 'images'),
     ],
     hiddenimports=['PyPDF2', 'fitz', 'PIL', 'PIL.Image', 'PIL.ImageTk'],
     hookspath=[],

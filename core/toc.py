@@ -7,7 +7,7 @@ import os
 import fitz  # PyMuPDF
 
 
-def insert_toc_pages(pdf_path: str, toc_entries: list[dict]):
+def insert_toc_pages(pdf_path: str, toc_entries: list[dict], file_info_list: list[str] = None):
     """
     Insert a multi-page Table of Contents at the beginning of the PDF.
     toc_entries = [
@@ -52,7 +52,7 @@ def insert_toc_pages(pdf_path: str, toc_entries: list[dict]):
         # ------------------------------------------------------------------
         # Insert TOC pages at the beginning (reverse order)
         # ------------------------------------------------------------------
-        for toc_page_info in reversed(toc_pages_data):
+        for toc_page_idx, toc_page_info in enumerate(reversed(toc_pages_data)):
             toc_page = doc.new_page(0, width=page_width, height=page_height)
 
             # Title
@@ -80,8 +80,22 @@ def insert_toc_pages(pdf_path: str, toc_entries: list[dict]):
                 width=1
             )
 
-            # Entries
             current_y = line_y + 25
+
+            # If this is the first TOC page and file_info_list is provided, insert file info below the divider
+            if toc_page_idx == len(toc_pages_data) - 1 and file_info_list:
+                info_font_size = 10
+                info_y = current_y
+                for info in file_info_list:
+                    toc_page.insert_text(
+                        (margin_left, info_y),
+                        info,
+                        fontsize=info_font_size,
+                        fontname="helv",
+                        color=(0.2, 0.2, 0.2)
+                    )
+                    info_y += info_font_size + 2
+                current_y = info_y + 8  # Add some space after file info
             max_filename_length = 80
 
             for entry in toc_page_info["entries"]:

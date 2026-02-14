@@ -16,13 +16,15 @@ from PyPDF2 import PdfReader, PdfWriter
 
 @dataclass
 class MergeOptions:
+    # TOC file info mode: 'none', 'filename', 'fullpath'
+    toc_fileinfo_mode: str = "none"
     delete_blank_pages: bool = False
     insert_toc: bool = False
 
     add_breaker_pages: bool = False
     breaker_uniform_size: bool = False
 
-    add_filename_bookmarks: bool = False   # ← ADD THIS
+    add_filename_bookmarks: bool = False
 
     compression_enabled: bool = False
     compression_level: str = "Medium"
@@ -302,12 +304,13 @@ def merge_files(
         # TOC entry
         # --------------------------------------------------------------
         if (options.insert_toc) and len(page_indices) > 0:
-            file_toc_entries.append(
-                {
-                    "filename": Path(file_path).name,
-                    "page": file_start_page,
-                }
-            )
+            toc_entry = {
+                "filename": Path(file_path).name,
+                "page": file_start_page,
+            }
+            if getattr(options, 'toc_fileinfo_mode', 'none') == 'fullpath':
+                toc_entry["fullpath"] = str(Path(file_path).resolve())
+            file_toc_entries.append(toc_entry)
 
     if cancelled():
         raise RuntimeError("Merge cancelled")
@@ -361,7 +364,15 @@ def merge_files(
 
     # Insert TOC pages (PyMuPDF) before encryption
     if options.insert_toc and len(file_toc_entries) > 0:
-        insert_toc_pages(out_path, file_toc_entries)
+        toc_fileinfo_mode = getattr(options, 'toc_fileinfo_mode', 'none')
+        file_info_list = None
+        if toc_fileinfo_mode == "filename":
+            # Use the merged output PDF's filename
+            file_info_list = [str(Path(output_path).name)]
+        elif toc_fileinfo_mode == "fullpath":
+            # Use the merged output PDF's full path
+            file_info_list = [str(Path(output_path).resolve())]
+        insert_toc_pages(out_path, file_toc_entries, file_info_list=file_info_list)
 
     # If encryption is needed, use PyMuPDF to encrypt after TOC insertion
     if needs_encryption:

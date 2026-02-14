@@ -24,15 +24,15 @@ Load Previously Saved List: Import a previously saved list. Choose to append fil
 Sorting
 Click column headers (Filename, File Size, Date) to sort the list. Sorting resets any custom ordering. Click again to reverse the sort order. An up arrow means ascending order; a down arrow means descending order.
 
-File Properties
-Page rotation: Set 0°, 90°, 180°, or 270° clockwise for each file. For images, rotation is applied during conversion to PDF.
-Pages: Specify which pages to include using:
+File List Properties
+Pages: Specify which pages to extract from the file using these rules:
   "All" or leave empty to include all pages.
   Single page: 5
   Range: 1-10
   Multiple ranges: 1-3,5,7-9
-For images, page selection is not available.
-Rev: Check to reverse the page order for that file. For images, this option is not available.
+ (Note for images that page selection is not available).
+Rev: Check to reverse the page order for the file. For images, this option is not available.
+Rot: Rotate pages - Set to 0°, 90°, 180°, or 270° (clockwise) for each file. For images, rotation is applied during conversion to PDF.
 
 Output Settings
 Enter the filename for the combined PDF.

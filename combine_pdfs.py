@@ -197,6 +197,8 @@ CONFIG_PATH = get_user_config_path()
 
 @dataclass
 class AppSettings:
+    # TOC file info mode: 'none', 'filename', 'fullpath'
+    toc_fileinfo_mode: str = "none"
     last_open_dir: str = ""
     last_save_dir: str = ""
     output_filename: str = ""
@@ -942,15 +944,35 @@ class CombinePDFsUI:
                 value = var.get().strip()
                 if not value:
                     value = "All"
+                # Validate format first
                 if not self._validate_page_range(value):
                     dialog_shown['value'] = True
                     import tkinter.messagebox as messagebox
                     messagebox.showerror("Invalid Page Range", "Please enter a valid page range (e.g., 'All', '1', '1-3', '2,4,6', '1:5').", parent=self.root)
                     top.destroy()
-                    # Reselect the row that produced the error
                     self.tree.selection_set(str(idx))
                     self.tree.see(str(idx))
                     return
+                # Validate against file page count
+                if value.strip().lower() not in ("", "all"):
+                    try:
+                        from core.page_ops import parse_page_range
+                        path = entry.get("path", "")
+                        if path.lower().endswith(".pdf"):
+                            from PyPDF2 import PdfReader
+                            reader = PdfReader(path)
+                            total_pages = len(reader.pages)
+                        else:
+                            total_pages = 1
+                        parse_page_range(value, total_pages)
+                    except Exception as e:
+                        dialog_shown['value'] = True
+                        import tkinter.messagebox as messagebox
+                        messagebox.showerror("Invalid Page Range", f"Page range is out of bounds or invalid for this file:\n{e}", parent=self.root)
+                        top.destroy()
+                        self.tree.selection_set(str(idx))
+                        self.tree.see(str(idx))
+                        return
                 entry["page_range"] = value
                 self._refresh_tree()
                 top.destroy()
@@ -1383,32 +1405,61 @@ class CombinePDFsUI:
         # Standardized vertical spacing for all checkboxes
         checkbox_pady = (0, 14)
 
-        # Dark mode toggle
+
+        # TOC file info radiobuttons (new)
+        self.var_toc_fileinfo = tk.StringVar(value=getattr(self.settings, 'toc_fileinfo_mode', 'none'))
+        # Only enable if TOC is checked
+        def on_toc_fileinfo_mode_change(*args):
+            # Save to settings if needed
+            self.settings.toc_fileinfo_mode = self.var_toc_fileinfo.get()
+            self._save_app_settings()
+        self.var_toc_fileinfo.trace_add('write', on_toc_fileinfo_mode_change)
+
+        def on_toc_checkbox_toggle(*args):
+            state = 'normal' if self.var_insert_toc.get() else 'disabled'
+            for rb in toc_fileinfo_rbs:
+                rb.configure(state=state)
+        self.var_insert_toc.trace_add('write', on_toc_checkbox_toggle)
+
+        # Even vertical spacing for all controls
+        row = 0
+        ttk.Checkbutton(frame, text="Add breaker pages between files", variable=self.var_add_breaker_pages, command=self._on_breaker_pages_toggle).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
+        row += 1
+        self.breaker_uniform_cb = ttk.Checkbutton(frame, text="Uniform breaker page size", variable=self.var_breaker_uniform)
+        self.breaker_uniform_cb.grid(row=row, column=0, sticky="w", padx=24, pady=checkbox_pady)
+        self.breaker_uniform_cb.configure(state="normal" if self.var_add_breaker_pages.get() else "disabled")
+        row += 1
+        ttk.Checkbutton(frame, text="Ignore blank pages in source files when combining", variable=self.var_delete_blank).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
+        row += 1
+        ttk.Checkbutton(frame, text="Insert a Table of Contents (TOC)", variable=self.var_insert_toc).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
+        row += 1
+        toc_fileinfo_rbs = []
+        toc_fileinfo_frame = ttk.Frame(frame)
+        toc_fileinfo_frame.grid(row=row, column=0, sticky="w", padx=24, pady=checkbox_pady)
+        rb_none = ttk.Radiobutton(toc_fileinfo_frame, text="Don't insert file info in TOC", variable=self.var_toc_fileinfo, value='none')
+        rb_filename = ttk.Radiobutton(toc_fileinfo_frame, text="Insert filename only", variable=self.var_toc_fileinfo, value='filename')
+        rb_fullpath = ttk.Radiobutton(toc_fileinfo_frame, text="Insert full path and filename", variable=self.var_toc_fileinfo, value='fullpath')
+        rb_none.grid(row=0, column=0, sticky="w")
+        rb_filename.grid(row=1, column=0, sticky="w")
+        rb_fullpath.grid(row=2, column=0, sticky="w")
+        toc_fileinfo_rbs.extend([rb_none, rb_filename, rb_fullpath])
+        on_toc_checkbox_toggle()
+        row += 1
+        ttk.Checkbutton(frame, text="Add filename bookmarks", variable=self.var_add_filename_bookmarks).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
+        row += 1
         self.var_dark_mode = tk.BooleanVar(value=getattr(self.settings, 'dark_mode', False))
         def on_dark_mode_toggle():
             self.settings.dark_mode = self.var_dark_mode.get()
             self._save_app_settings()
-            # Change theme live using ttkbootstrap Style
             style = tb.Style()
             if self.settings.dark_mode:
                 style.theme_use('darkly')
             else:
                 style.theme_use('flatly')
-        ttk.Checkbutton(frame, text="Dark mode", variable=self.var_dark_mode, command=on_dark_mode_toggle).grid(row=5, column=0, sticky="w", pady=checkbox_pady)
-
-        # Apply dark mode at startup if enabled
+        ttk.Checkbutton(frame, text="Dark mode", variable=self.var_dark_mode, command=on_dark_mode_toggle).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
+        row += 1
         if self.var_dark_mode.get():
             on_dark_mode_toggle()
-
-        cb_bg = "#dcdad5"
-        cb_fg = "#000000"
-        ttk.Checkbutton(frame, text="Add breaker pages between files", variable=self.var_add_breaker_pages, command=self._on_breaker_pages_toggle).grid(row=0, column=0, sticky="w", pady=checkbox_pady)
-        self.breaker_uniform_cb = ttk.Checkbutton(frame, text="Uniform breaker page size", variable=self.var_breaker_uniform)
-        self.breaker_uniform_cb.grid(row=1, column=0, sticky="w", padx=24, pady=checkbox_pady)
-        self.breaker_uniform_cb.configure(state="normal" if self.var_add_breaker_pages.get() else "disabled")
-        ttk.Checkbutton(frame, text="Ignore blank pages in source files when combining", variable=self.var_delete_blank).grid(row=2, column=0, sticky="w", pady=checkbox_pady)
-        ttk.Checkbutton(frame, text="Insert a Table of Contents (TOC)", variable=self.var_insert_toc).grid(row=3, column=0, sticky="w", pady=checkbox_pady)
-        ttk.Checkbutton(frame, text="Add filename bookmarks", variable=self.var_add_filename_bookmarks).grid(row=4, column=0, sticky="w", pady=checkbox_pady)
 
     def _on_breaker_pages_toggle(self):
         set_widgets_state([self.breaker_uniform_cb], self.var_add_breaker_pages.get())
@@ -1817,6 +1868,7 @@ class CombinePDFsUI:
 
     def _collect_options(self) -> MergeOptions:
         # Sync UI → settings
+        self.settings.toc_fileinfo_mode = self.var_toc_fileinfo.get()
         self.settings.add_breaker_pages = self.var_add_breaker_pages.get()
         self.settings.breaker_uniform_size = self.var_breaker_uniform.get()
         self.settings.delete_blank_pages = self.var_delete_blank.get()
@@ -1892,6 +1944,8 @@ class CombinePDFsUI:
 
             # Bookmarks
             add_filename_bookmarks=self.settings.add_filename_bookmarks,
+            # TOC file info mode
+            toc_fileinfo_mode=self.settings.toc_fileinfo_mode,
         )
 
     # -----------------------------------------------------------------------
