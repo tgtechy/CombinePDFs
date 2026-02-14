@@ -46,7 +46,6 @@ class MergeOptions:
 
     scaling_enabled: bool = False
     scaling_mode: str = "Fit"
-    scaling_percent: int = 100
 
     # Encryption
     encrypt_enabled: bool = False

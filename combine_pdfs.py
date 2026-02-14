@@ -234,7 +234,6 @@ class AppSettings:
     # Scaling
     scaling_enabled: bool = False
     scaling_mode: str = "Fit"
-    scaling_percent: int = 100
 
     # UI
     dark_mode: bool = False
@@ -1725,7 +1724,6 @@ class CombinePDFsUI:
 
         self.var_scale_enabled = tk.BooleanVar(value=self.settings.scaling_enabled)
         self.var_scale_mode = tk.StringVar(value=self.settings.scaling_mode)
-        self.var_scale_percent = tk.IntVar(value=self.settings.scaling_percent)
 
         cb_bg = "#dcdad5"
         cb_fg = "#000000"
@@ -1738,35 +1736,11 @@ class CombinePDFsUI:
         scale_mode_combo = ttk.Combobox(
             frame,
             textvariable=self.var_scale_mode,
-            values=["Fit", "Fill", "Percent"],
+            values=["Fit", "Fill"],
             state="readonly",
         )
         scale_mode_combo.grid(row=1, column=1, sticky="w", pady=(0, 8))
         self._scaling_controls.append(scale_mode_combo)
-
-        ttk.Label(frame, text="Percent:").grid(row=2, column=0, sticky="w", pady=(0, 8))
-        percent_frame = ttk.Frame(frame)
-        percent_frame.grid(row=2, column=1, sticky="w", pady=(0, 8))
-        def on_slider_move(val):
-            val = int(round(float(val)))
-            self.var_scale_percent.set(val)
-        scale_percent_slider = ttk.Scale(percent_frame, from_=1, to=100, orient="horizontal", variable=self.var_scale_percent, length=260, command=on_slider_move)
-        scale_percent_slider.pack(side="left")
-        percent_value_label = ttk.Label(percent_frame, textvariable=self.var_scale_percent, width=4)
-        percent_value_label.pack(side="left", padx=(8,0))
-        self._scaling_controls.append(scale_percent_slider)
-        self._scaling_controls.append(percent_value_label)
-
-        def update_percent_slider_state(*args):
-            if self.var_scale_mode.get() == "Percent" and self.var_scale_enabled.get():
-                scale_percent_slider.state(["!disabled"])
-                percent_value_label.state(["!disabled"])
-            else:
-                scale_percent_slider.state(["disabled"])
-                percent_value_label.state(["disabled"])
-
-        self.var_scale_mode.trace_add('write', update_percent_slider_state)
-        self.var_scale_enabled.trace_add('write', update_percent_slider_state)
 
         frame.columnconfigure(1, weight=1)
 
@@ -1776,7 +1750,6 @@ class CombinePDFsUI:
             set_scaling_controls_state(self.var_scale_enabled.get())
         self.var_scale_enabled.trace_add('write', lambda *a: on_scaling_enabled())
         set_scaling_controls_state(self.var_scale_enabled.get())
-        update_percent_slider_state()
 
     def _build_tab_compression(self, nb: ttk.Notebook) -> None:
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
@@ -1926,7 +1899,6 @@ class CombinePDFsUI:
 
         self.settings.scaling_enabled = self.var_scale_enabled.get()
         self.settings.scaling_mode = self.var_scale_mode.get()
-        self.settings.scaling_percent = int(self.var_scale_percent.get())
 
         # Encryption options from UI
         encrypt_enabled = getattr(self, 'var_encrypt_enabled', None)
@@ -1967,7 +1939,6 @@ class CombinePDFsUI:
 
             scaling_enabled=self.settings.scaling_enabled,
             scaling_mode=self.settings.scaling_mode,
-            scaling_percent=self.settings.scaling_percent,
 
             # Encryption
             encrypt_enabled=encryption['encrypt_enabled'],
