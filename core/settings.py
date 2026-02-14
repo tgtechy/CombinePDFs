@@ -1,9 +1,6 @@
 # core/settings.py
 
 import os
-print("CWD:", os.getcwd())
-print("Loaded settings.py from:", __file__)
-
 import json
 from pathlib import Path
 

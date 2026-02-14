@@ -1,6 +1,6 @@
 from __future__ import annotations
+
 # core/compression.py
-print(">>> LOADED compression.py FROM:", __file__)
 
 import io
 from PIL import Image

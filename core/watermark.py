@@ -1,13 +1,11 @@
 from __future__ import annotations
-# core/watermark.py
 
+# core/watermark.py
 
 import io
 import math
-
 from PyPDF2 import PdfReader
 from reportlab.pdfgen import canvas
-
 
 def add_watermark(
     page,

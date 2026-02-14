@@ -1,6 +1,6 @@
 from __future__ import annotations
+
 # core/page_ops.py
-print(">>> LOADED page_ops.py FROM:", __file__)
 
 from typing import List
 import io

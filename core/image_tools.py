@@ -1,6 +1,6 @@
 from __future__ import annotations
+
 # core/image_tools.py
-print(">>> LOADED image_tools.py FROM:", __file__)
 
 import tempfile
 import os

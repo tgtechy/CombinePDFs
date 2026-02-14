@@ -1,11 +1,10 @@
 from __future__ import annotations
+
 # core/toc.py
-print(">>> LOADED toc.py FROM:", __file__)
 
 import tempfile
 import os
 import fitz  # PyMuPDF
-
 
 def insert_toc_pages(pdf_path: str, toc_entries: list[dict], file_info_list: list[str] = None):
     """

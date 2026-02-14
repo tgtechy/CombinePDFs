@@ -28,7 +28,7 @@ If you would like to build the exe from scratch rather than download the .exe fi
 
 ## Build Instructions (if you don't want to use the provided pre-compiled .exe)
 
-This project is a Python/Tkinter app to combine PDF files with drag-and-drop reordering and many other options.
+This project is a Python/Tkinter app to combine PDF files.
 
 ### Build a Windows executable using PyInstaller
 

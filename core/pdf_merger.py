@@ -1,6 +1,6 @@
-# core/pdf_merger.py
-
 from __future__ import annotations
+
+# core/pdf_merger.py
 
 from dataclasses import dataclass
 from pathlib import Path

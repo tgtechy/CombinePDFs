@@ -1,5 +1,15 @@
 from __future__ import annotations
-print(">>> RUNNING combine_pdfs.py FROM:", __file__)
+import os
+import sys
+import threading
+from pathlib import Path
+from dataclasses import dataclass
+from typing import List, Optional
+import ttkbootstrap as tb
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+
+__VERSION__ = "2.1.0"
 
 # ---------------------------------------------------------------------------
 # Reusable helpers for widget state and custom dialogs
@@ -101,19 +111,6 @@ def show_custom_dialog(
     dlg.wait_window()
     return result[0]
 
-import os
-import sys
-import threading
-from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Optional
- # Removed TKinterModernThemes integration
-
-import ttkbootstrap as tb
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-
-__VERSION__ = "2.0.0"
 
 # ---------------------------------------------------------------------------
 # Define ROOT and CORE_DIR FIRST
