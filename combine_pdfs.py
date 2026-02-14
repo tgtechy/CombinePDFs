@@ -2141,25 +2141,34 @@ class CombinePDFsUI:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
-            # Validate loaded data: only keep dicts with a path and supported extension
-            from core.file_manager import SUPPORTED_EXTS
-            valid_files = []
-            unsupported_files = []
+            # Extract all file paths from loaded list
+            paths = []
+            extra_info = {}
             for entry in loaded:
                 if isinstance(entry, dict) and "path" in entry:
-                    if any(entry["path"].lower().endswith(e) for e in SUPPORTED_EXTS):
-                        valid_files.append({
-                            "path": entry["path"],
-                            "page_range": entry.get("page_range", "All"),
-                            "rotation": entry.get("rotation", 0),
-                            "reverse": entry.get("reverse", False),
-                        })
-                    else:
-                        unsupported_files.append(entry["path"])
+                    paths.append(entry["path"])
+                    extra_info[entry["path"]] = {
+                        "page_range": entry.get("page_range", "All"),
+                        "rotation": entry.get("rotation", 0),
+                        "reverse": entry.get("reverse", False),
+                    }
             self.files.clear()
-            self.files.extend(valid_files)
-            if unsupported_files:
-                messagebox.showinfo("Some files skipped", "Unsupported file(s) skipped:\n" + "\n".join(unsupported_files), parent=self.root)
+            # Use add_files_to_list to check all files
+            added, dupes, dupe_names, unsupported, unsupported_names = add_files_to_list(self.files, paths)
+            # Restore extra info for successfully added files
+            for entry in self.files:
+                info = extra_info.get(entry["path"])
+                if info:
+                    entry["page_range"] = info["page_range"]
+                    entry["rotation"] = info["rotation"]
+                    entry["reverse"] = info["reverse"]
+            msg = []
+            if dupes:
+                msg.append(f"{dupes} duplicate file(s) skipped: {', '.join(dupe_names)}")
+            if unsupported:
+                msg.append(f"{unsupported} unsupported or unreadable file(s) skipped: {', '.join(unsupported_names)}")
+            if msg:
+                messagebox.showinfo("Some files skipped", "\n".join(msg), parent=self.root)
             self._refresh_tree()
             self._update_status_bar()
         except Exception as e:
