@@ -184,5 +184,3 @@ def insert_toc_pages(pdf_path: str, toc_entries: list[dict], file_info_list: lis
 
     except Exception as e:
         print(f"Warning: Could not insert TOC page: {e}")
-
-print(">>> FUNCTIONS DEFINED:", "insert_toc_pages" in globals())

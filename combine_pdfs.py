@@ -158,22 +158,7 @@ from core.file_manager import (
     clear_files,
 )
 
-print("\n=== MODULE ORIGIN DIAGNOSTIC ===")
-import core
-print("core module:", core.__file__)
-import core.settings
-print("settings module:", core.settings.__file__)
-import core.page_ops
-print("page_ops module:", core.page_ops.__file__)
-import core.image_tools
-print("image_tools module:", core.image_tools.__file__)
-import core.compression
-print("compression module:", core.compression.__file__)
-import core.toc
-print("toc module:", core.toc.__file__)
-print("=== END MODULE ORIGIN ===\n")
 from core.pdf_merger import merge_files, FileEntry, MergeOptions
-
 
 import platform
 # ---------------------------------------------------------------------------
@@ -343,7 +328,7 @@ class CombinePDFsUI:
             title="Select output PDF file",
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            initialdir=getattr(self.settings, 'last_save_dir', os.getcwd()),
+            initialdir=getattr(self.settings, 'last_save_dir', os.get()),
             initialfile="Combined.pdf"
         )
         if not path:
@@ -1266,15 +1251,11 @@ class CombinePDFsUI:
         self._refresh_tree()
         self._update_status_bar()
 
-
-
-
     # -----------------------------------------------------------------------
     # Settings notebook
     # -----------------------------------------------------------------------
 
     def _build_settings_notebook(self, parent: ttk.Frame) -> None:
-        print(">>> BUILDING SETTINGS NOTEBOOK")
 
         nb = ttk.Notebook(parent, style='Settings.TNotebook')
         nb.grid(row=0, column=0, sticky="nsew", pady=(10,10 ))
@@ -2275,8 +2256,6 @@ class CombinePDFsUI:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    print("CWD:", os.getcwd())
-    print("Loaded settings.py from:", CORE_DIR / "settings.py")
 
     # Enable DPI awareness on Windows
     try:
