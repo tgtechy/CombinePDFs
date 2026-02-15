@@ -65,6 +65,7 @@ def _release_single_instance_lock():
             pass
         _instance_lockfile = None
 
+
 __VERSION__ = "2.1.0"
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,7 @@ __VERSION__ = "2.1.0"
 import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional
+import datetime
 
 def set_widgets_state(widgets: List[tk.Widget], enabled: bool):
     """Enable or disable a list of Tkinter widgets."""
@@ -1328,6 +1330,14 @@ class CombinePDFsUI:
         self._build_tab_encryption(nb)
 
     def _build_tab_encryption(self, nb: ttk.Notebook) -> None:
+        # Helper to enable/disable encryption controls
+        def set_encryption_controls_state(enabled: bool):
+            state = "normal" if enabled else "disabled"
+            for widget in self._encryption_controls:
+                try:
+                    widget.config(state=state)
+                except Exception:
+                    pass
 
         frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
         # Add a Unicode lock icon to the left of 'Encryption'
@@ -1365,35 +1375,6 @@ class CombinePDFsUI:
             entry = ttk.Entry(entry_frame, textvariable=var, show="*", width=38)
             entry.grid(row=0, column=0, sticky="ew")
             show = {'state': False}
-            def toggle_pw():
-                show['state'] = not show['state']
-                entry.config(show='' if show['state'] else '*')
-                btn.config(text='👁' if not show['state'] else '🙈')
-            btn = tk.Button(entry_frame, text='👁', width=2, command=toggle_pw, relief='flat', bd=0, padx=0, pady=0)
-            btn.grid(row=0, column=1, sticky="e", padx=(4,0))
-            self._encryption_controls.append(entry)
-            return entry
-
-        user_pw_entry = add_pw_row(user_pw_group, "User Password:", 0, self.var_encrypt_user_pw)
-        user_pw2_entry = add_pw_row(user_pw_group, "Retype User Password:", 1, self.var_encrypt_user_pw2)
-        owner_pw_entry = add_pw_row(owner_pw_group, "Permissions (Owner) Password:", 0, self.var_encrypt_owner_pw)
-        owner_pw2_entry = add_pw_row(owner_pw_group, "Retype Owner Password:", 1, self.var_encrypt_owner_pw2)
-
-        # Warning label for mismatched passwords
-        self.encrypt_pw_warning = ttk.Label(frame, text="", foreground="red")
-        self.encrypt_pw_warning.grid(row=3, column=0, columnspan=2, sticky="w", pady=(5, 0))
-        self._encryption_controls.append(self.encrypt_pw_warning)
-
-        frame.columnconfigure(1, weight=1)
-
-        def set_encryption_controls_state(enabled):
-            set_widgets_state(self._encryption_controls, enabled)
-            if not enabled:
-                self.var_encrypt_user_pw.set("")
-                self.var_encrypt_user_pw2.set("")
-                self.var_encrypt_owner_pw.set("")
-                self.var_encrypt_owner_pw2.set("")
-                self.encrypt_pw_warning.config(text="")
 
         def on_encrypt_enabled(*args):
             set_encryption_controls_state(self.var_encrypt_enabled.get())
@@ -2197,9 +2178,33 @@ class CombinePDFsUI:
                 size /= 1024.0
             return f"{size:.1f} PB"
 
+
         size_str = human_size(file_size)
         filename = os.path.basename(output_path)
         fullpath = os.path.abspath(output_path)
+
+        # Get merged file's modification date/time
+        merged_file_datetime = None
+        try:
+            if not os.path.exists(output_path):
+                print(f"[DEBUG] Output file does not exist: {output_path}")
+            dt = datetime.datetime.fromtimestamp(os.path.getmtime(output_path)).astimezone()
+            merged_file_datetime = dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+        except Exception as e:
+            print(f"[DEBUG] Error getting file date/time: {e}")
+            merged_file_datetime = 'Unknown'
+
+        # Compute SHA256 hash of merged PDF
+        sha256_hash = None
+        try:
+            import hashlib
+            with open(output_path, "rb") as f:
+                sha256 = hashlib.sha256()
+                for chunk in iter(lambda: f.read(8192), b""):
+                    sha256.update(chunk)
+                sha256_hash = sha256.hexdigest()
+        except Exception:
+            sha256_hash = None
 
         dlg = tk.Toplevel(self.root)
         dlg.title("Done")
@@ -2218,8 +2223,8 @@ class CombinePDFsUI:
             except Exception:
                 pass
 
-        # Set a taller, more compact size
-        width, height = 650, 300
+        # Set a narrower, more compact size
+        width, height = 690, 320  # ~15% wider
         dlg.geometry(f"{width}x{height}")
 
         # Center the dialog in the parent window
@@ -2252,23 +2257,57 @@ class CombinePDFsUI:
             check_label = tk.Label(dlg, text="✔", font=("Segoe UI", 24, "bold"), fg="green", bg=bg)
         check_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
 
+        filenames = []
+        for f in self.files:
+            if hasattr(f, 'path'):
+                filenames.append(str(f.path))
+            elif isinstance(f, dict) and 'path' in f:
+                filenames.append(str(f['path']))
+        filenames_str = "\n".join(f"- {name}" for name in filenames)
         info = (
             f"Merged PDF created successfully.\n\n"
             f"Files combined: {file_count}\n"
             f"Pages in merged PDF: {page_count if page_count is not None else 'Unknown'}\n"
             f"Output size: {size_str}\n"
-            f"Saved as: {fullpath}"
+            f"Saved as: {fullpath}\n"
+            f"Date/time: {merged_file_datetime}\n"
+            f"SHA256: {sha256_hash if sha256_hash else 'Could not compute hash'}\n"
+            f"\nCombined files:\n{filenames_str}"
         )
-        msg_label = tk.Label(
-            dlg,
-            text=info,
+        # Use a Text widget for better wrapping and scrollability
+        info_frame = tk.Frame(dlg, bg=bg)
+        info_frame.grid(row=0, column=1, columnspan=2, sticky="nsew", padx=(0, 16), pady=(24, 24))
+        info_frame.grid_rowconfigure(0, weight=1)
+        info_frame.grid_columnconfigure(0, weight=1)
+        info_text = tk.Text(
+            info_frame,
             font=("Segoe UI", 10),
             bg=bg,
-            anchor="w",
-            justify="left",
-            wraplength=450
+            wrap="word",
+            height=12,
+            width=60,
+            borderwidth=0,
+            highlightthickness=0
         )
-        msg_label.grid(row=0, column=1, columnspan=2, sticky="w", padx=(0, 16), pady=(24, 24))
+        info_text.insert("1.0", info)
+        info_text.config(state="disabled")
+        info_text.grid(row=0, column=0, sticky="nsew")
+        scrollbar = tk.Scrollbar(info_frame, orient="vertical", command=info_text.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        info_text.config(yscrollcommand=scrollbar.set)
+        dlg.grid_rowconfigure(0, weight=1)
+        dlg.grid_columnconfigure(1, weight=1)
+
+        def copy_info():
+            try:
+                info_text.config(state="normal")
+                clipboard_text = info_text.get("1.0", "end").strip()
+                info_text.config(state="disabled")
+                dlg.clipboard_clear()
+                dlg.clipboard_append(clipboard_text)
+                dlg.update()
+            except Exception:
+                pass
 
         def open_pdf():
             try:
@@ -2285,13 +2324,26 @@ class CombinePDFsUI:
 
         from ttkbootstrap import Button as TBButton
         btn_frame = tk.Frame(dlg, bg=bg, bd=0, highlightthickness=0)
-        btn_frame.grid(row=2, column=0, columnspan=3, pady=(0, 18), sticky="sew")
+        btn_frame.grid(row=2, column=0, columnspan=3, pady=(0, 18), sticky="n")
+        # Center and equally space buttons
         btn_frame.columnconfigure(0, weight=1)
         btn_frame.columnconfigure(1, weight=1)
+        btn_frame.columnconfigure(2, weight=1)
         open_btn = TBButton(btn_frame, text="Open PDF", command=open_pdf, width=14, style="WinButton.TButton")
-        open_btn.grid(row=0, column=0, padx=(10, 8), sticky="e")
+        open_btn.grid(row=0, column=0, padx=(10, 10), sticky="ew")
+        # Confirmation label (hidden by default)
+        confirmation_label = tk.Label(btn_frame, text="Details copied to clipboard.", font=("Segoe UI", 9), fg="green", bg=bg)
+        confirmation_label.grid(row=1, column=1, pady=(4, 0))
+        confirmation_label.grid_remove()
+
+        def show_confirmation():
+            confirmation_label.grid()
+            btn_frame.after(1500, confirmation_label.grid_remove)
+
+        copy_btn = TBButton(btn_frame, text="Copy info ...", command=lambda: (copy_info(), show_confirmation()), width=14, style="WinButton.TButton")
+        copy_btn.grid(row=0, column=1, padx=(10, 10), sticky="ew")
         close_btn = TBButton(btn_frame, text="Close", command=dlg.destroy, width=14, style="WinButton.TButton")
-        close_btn.grid(row=0, column=1, padx=(8, 10), sticky="w")
+        close_btn.grid(row=0, column=2, padx=(10, 10), sticky="ew")
         dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
 
     def on_save_file_list(self) -> None:
