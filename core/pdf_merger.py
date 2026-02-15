@@ -8,6 +8,7 @@ from typing import List, Dict, Callable, Optional
 
 import os
 import tempfile
+import datetime
 
 import tkinter as tk
 from tkinter import messagebox
@@ -379,8 +380,7 @@ def merge_files(
         elif toc_fileinfo_mode == "fullpath":
             file_info_list.append(str(Path(output_path).resolve()))
         if getattr(options, 'toc_insert_date', False):
-            import datetime
-            dt = datetime.datetime.now().strftime("Created: %Y-%m-%d %H:%M:%S")
+            dt = datetime.datetime.now().astimezone().strftime("Created: %Y-%m-%d %H:%M:%S %Z")
             file_info_list.append(dt)
         if not file_info_list:
             file_info_list = None
