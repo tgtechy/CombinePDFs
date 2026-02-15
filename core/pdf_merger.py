@@ -18,6 +18,7 @@ from PyPDF2 import PdfReader, PdfWriter
 class MergeOptions:
     # TOC file info mode: 'none', 'filename', 'fullpath'
     toc_fileinfo_mode: str = "none"
+    toc_insert_date: bool = False
     delete_blank_pages: bool = False
     insert_toc: bool = False
 
@@ -372,13 +373,17 @@ def merge_files(
     # Insert TOC pages (PyMuPDF) before encryption
     if options.insert_toc and len(file_toc_entries) > 0:
         toc_fileinfo_mode = getattr(options, 'toc_fileinfo_mode', 'none')
-        file_info_list = None
+        file_info_list = []
         if toc_fileinfo_mode == "filename":
-            # Use the merged output PDF's filename
-            file_info_list = [str(Path(output_path).name)]
+            file_info_list.append(str(Path(output_path).name))
         elif toc_fileinfo_mode == "fullpath":
-            # Use the merged output PDF's full path
-            file_info_list = [str(Path(output_path).resolve())]
+            file_info_list.append(str(Path(output_path).resolve()))
+        if getattr(options, 'toc_insert_date', False):
+            import datetime
+            dt = datetime.datetime.now().strftime("Created: %Y-%m-%d %H:%M:%S")
+            file_info_list.append(dt)
+        if not file_info_list:
+            file_info_list = None
         insert_toc_pages(out_path, file_toc_entries, file_info_list=file_info_list)
 
     # If encryption is needed, use PyMuPDF to encrypt after TOC insertion

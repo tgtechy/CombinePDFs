@@ -237,6 +237,7 @@ CONFIG_PATH = get_user_config_path()
 class AppSettings:
     # TOC file info mode: 'none', 'filename', 'fullpath'
     toc_fileinfo_mode: str = "none"
+    toc_insert_date: bool = False
     last_open_dir: str = ""
     last_save_dir: str = ""
     output_filename: str = ""
@@ -384,7 +385,7 @@ class CombinePDFsUI:
             title="Select output PDF file",
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            initialdir=getattr(self.settings, 'last_save_dir', os.get()),
+            initialdir=getattr(self.settings, 'last_save_dir', os.getcwd()),
             initialfile="Combined.pdf"
         )
         if not path:
@@ -1436,11 +1437,12 @@ class CombinePDFsUI:
         self.var_insert_toc = tk.BooleanVar(value=self.settings.insert_toc)
         self.var_add_filename_bookmarks = tk.BooleanVar(value=self.settings.add_filename_bookmarks)
         # Standardized vertical spacing for all checkboxes
-        checkbox_pady = (0, 14)
+        checkbox_pady = (0, 12)
 
 
         # TOC file info radiobuttons (new)
         self.var_toc_fileinfo = tk.StringVar(value=getattr(self.settings, 'toc_fileinfo_mode', 'none'))
+        self.var_toc_insert_date = tk.BooleanVar(value=getattr(self.settings, 'toc_insert_date', False))
         # Only enable if TOC is checked
         def on_toc_fileinfo_mode_change(*args):
             # Save to settings if needed
@@ -1452,6 +1454,7 @@ class CombinePDFsUI:
             state = 'normal' if self.var_insert_toc.get() else 'disabled'
             for rb in toc_fileinfo_rbs:
                 rb.configure(state=state)
+            toc_date_cb.configure(state=state)
         self.var_insert_toc.trace_add('write', on_toc_checkbox_toggle)
 
         # Even vertical spacing for all controls
@@ -1468,19 +1471,32 @@ class CombinePDFsUI:
         row += 1
         toc_fileinfo_rbs = []
         toc_fileinfo_frame = ttk.Frame(frame)
-        toc_fileinfo_frame.grid(row=row, column=0, sticky="w", padx=24, pady=checkbox_pady)
-        rb_none = ttk.Radiobutton(toc_fileinfo_frame, text="Don't insert file info in TOC", variable=self.var_toc_fileinfo, value='none')
+        toc_fileinfo_frame.grid(row=row, column=0, sticky="w", padx=24, pady=(0, 0))
+        # Insert date created checkbox (indented, but above radiobuttons)
+        toc_date_cb = ttk.Checkbutton(toc_fileinfo_frame, text="Insert date created in TOC", variable=self.var_toc_insert_date)
+        toc_date_cb.grid(row=0, column=0, sticky="w", padx=0, pady=(0, 6))
+        rb_none = ttk.Radiobutton(toc_fileinfo_frame, text="Don't insert file information in TOC", variable=self.var_toc_fileinfo, value='none')
         rb_filename = ttk.Radiobutton(toc_fileinfo_frame, text="Insert filename only", variable=self.var_toc_fileinfo, value='filename')
         rb_fullpath = ttk.Radiobutton(toc_fileinfo_frame, text="Insert full path and filename", variable=self.var_toc_fileinfo, value='fullpath')
-        rb_none.grid(row=0, column=0, sticky="w")
-        rb_filename.grid(row=1, column=0, sticky="w")
-        rb_fullpath.grid(row=2, column=0, sticky="w")
+        rb_none.grid(row=1, column=0, sticky="w")
+        rb_filename.grid(row=2, column=0, sticky="w")
+        rb_fullpath.grid(row=3, column=0, sticky="w")
         toc_fileinfo_rbs.extend([rb_none, rb_filename, rb_fullpath])
         on_toc_checkbox_toggle()
+        row += 1
+        # Move bookmarks and dark mode checkboxes to the bottom for better grouping
+        # ...existing code for TOC and other options...
+        # Add spacing before bookmarks and dark mode
+        row += 1
+        ttk.Label(frame, text="").grid(row=row, column=0, pady=(0, 0))
         row += 1
         ttk.Checkbutton(frame, text="Add filename bookmarks", variable=self.var_add_filename_bookmarks).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
         row += 1
         self.var_dark_mode = tk.BooleanVar(value=getattr(self.settings, 'dark_mode', False))
+        def on_toc_date_toggle(*args):
+            self.settings.toc_insert_date = self.var_toc_insert_date.get()
+            self._save_app_settings()
+        self.var_toc_insert_date.trace_add('write', on_toc_date_toggle)
         def on_dark_mode_toggle():
             self.settings.dark_mode = self.var_dark_mode.get()
             self._save_app_settings()
@@ -1908,6 +1924,7 @@ class CombinePDFsUI:
     def _collect_options(self) -> MergeOptions:
         # Sync UI → settings
         self.settings.toc_fileinfo_mode = self.var_toc_fileinfo.get()
+        self.settings.toc_insert_date = self.var_toc_insert_date.get()
         self.settings.add_breaker_pages = self.var_add_breaker_pages.get()
         self.settings.breaker_uniform_size = self.var_breaker_uniform.get()
         self.settings.delete_blank_pages = self.var_delete_blank.get()
@@ -1983,6 +2000,7 @@ class CombinePDFsUI:
             add_filename_bookmarks=self.settings.add_filename_bookmarks,
             # TOC file info mode
             toc_fileinfo_mode=self.settings.toc_fileinfo_mode,
+            toc_insert_date=self.settings.toc_insert_date,
         )
 
     # -----------------------------------------------------------------------
@@ -1991,7 +2009,18 @@ class CombinePDFsUI:
 
     def on_merge_clicked(self) -> None:
         if not self.files:
-            messagebox.showwarning("No files", "Please add at least one file.", parent=self.root)
+            warning_img_path = str(Path(__file__).resolve().parent / "images" / "warning.png")
+            show_custom_dialog(
+                self.root,
+                title="No files",
+                message="Please add files to the file list.",
+                icon=warning_img_path,
+                buttons=["OK"],
+                default="OK",
+                cancel="OK",
+                width=475,
+                height=150
+            )
             return
 
         output_path = self.output_var.get().strip()
@@ -2149,6 +2178,16 @@ class CombinePDFsUI:
         except Exception:
             file_size = None
 
+        # Get page count of merged PDF
+        page_count = None
+        try:
+            from PyPDF2 import PdfReader
+            with open(output_path, "rb") as f:
+                reader = PdfReader(f)
+                page_count = len(reader.pages)
+        except Exception:
+            page_count = None
+
         def human_size(size):
             if size is None:
                 return "Unknown size"
@@ -2180,7 +2219,7 @@ class CombinePDFsUI:
                 pass
 
         # Set a taller, more compact size
-        width, height = 440, 300
+        width, height = 650, 300
         dlg.geometry(f"{width}x{height}")
 
         # Center the dialog in the parent window
@@ -2216,6 +2255,7 @@ class CombinePDFsUI:
         info = (
             f"Merged PDF created successfully.\n\n"
             f"Files combined: {file_count}\n"
+            f"Pages in merged PDF: {page_count if page_count is not None else 'Unknown'}\n"
             f"Output size: {size_str}\n"
             f"Saved as: {fullpath}"
         )
@@ -2226,7 +2266,7 @@ class CombinePDFsUI:
             bg=bg,
             anchor="w",
             justify="left",
-            wraplength=300
+            wraplength=450
         )
         msg_label.grid(row=0, column=1, columnspan=2, sticky="w", padx=(0, 16), pady=(24, 24))
 
