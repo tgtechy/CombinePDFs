@@ -2289,13 +2289,46 @@ class CombinePDFsUI:
             check_label = tk.Label(dlg, text="✔", font=("Segoe UI", 24, "bold"), fg="green", bg=bg)
         check_label.grid(row=0, column=0, rowspan=2, padx=(24, 12), pady=(24, 12), sticky="n")
 
-        filenames = []
-        for f in self.files:
-            if hasattr(f, 'path'):
-                filenames.append(str(f.path))
-            elif isinstance(f, dict) and 'path' in f:
-                filenames.append(str(f['path']))
-        filenames_str = "\n".join(f"- {name}" for name in filenames)
+        file_details = []
+        file_number = 1
+        for entry in self.files:
+            # Get file path
+            if hasattr(entry, 'path'):
+                path = str(entry.path)
+            elif isinstance(entry, dict) and 'path' in entry:
+                path = str(entry['path'])
+            else:
+                path = str(entry)
+
+            # Determine if image
+            ext = os.path.splitext(path)[1].lower()
+            is_image = ext in ('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif')
+
+            # Pages extracted
+            page_range = entry.get('page_range', 'All') if not is_image else 'N/A'
+            pages_extracted = (
+                str(page_range) if str(page_range).strip().lower() != 'all' else 'All'
+            ) if not is_image else 'N/A'
+
+            # Reverse
+            reverse_val = entry.get('reverse', False) if not is_image else None
+            reverse_str = 'Yes' if reverse_val else 'No' if not is_image else 'N/A'
+
+            # Rotation
+            rotation_val = entry.get('rotation', 0)
+            rotation_str = str(rotation_val)
+
+            # Compose detail block (multi-line, readable)
+            file_details.append(
+                f"{file_number}. {path}\n"
+                f"    Pages:     {pages_extracted}\n"
+                f"    Reversed:  {reverse_str}\n"
+                f"    Rotation:  {rotation_str}°"
+            )
+
+            file_number += 1
+
+        file_details_str = "\n\n".join(file_details)
         info = (
             f"Merged PDF created successfully.\n\n"
             f"Files combined: {file_count}\n"
@@ -2304,7 +2337,7 @@ class CombinePDFsUI:
             f"Saved as: {fullpath}\n"
             f"Date/time: {merged_file_datetime}\n"
             f"SHA256: {sha256_hash if sha256_hash else 'Could not compute hash'}\n"
-            f"\nCombined files:\n{filenames_str}"
+            f"\nCombined files (details):\n{file_details_str}"
         )
         # Use a Text widget for better wrapping and scrollability
         info_frame = tk.Frame(dlg, bg=bg)
