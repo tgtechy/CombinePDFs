@@ -1382,8 +1382,15 @@ class CombinePDFsUI:
                     btn.config(text='👁')
                 else:
                     entry.config(show='')
-                    btn.config(text='🙈')
-            btn = tk.Button(entry_frame, text='👁', width=2, command=toggle, relief='flat', padx=0)
+                    btn.config(text="\U0001F512")
+            btn = tk.Button(
+                entry_frame,
+                text='👁',
+                width=2,
+                command=toggle,
+                relief='flat',
+                padx=0
+            )
             btn.grid(row=0, column=1, sticky="e", padx=(4,0))
             self._encryption_controls.append(entry)
             self._encryption_controls.append(btn)
