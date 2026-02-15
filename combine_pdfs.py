@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 import os
 import sys
@@ -8,6 +9,61 @@ from typing import List, Optional
 import ttkbootstrap as tb
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+
+# --- Single instance enforcement (Windows, cross-platform fallback) ---
+import tempfile
+import atexit
+import errno
+
+_instance_lockfile = None
+def _acquire_single_instance_lock():
+    """Prevent multiple instances by locking a file in the temp directory."""
+    global _instance_lockfile
+    lockfile = os.path.join(tempfile.gettempdir(), 'CombinePDFs.lock')
+    try:
+        if os.name == 'nt':
+            import msvcrt
+            _instance_lockfile = open(lockfile, 'w')
+            try:
+                msvcrt.locking(_instance_lockfile.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError:
+                _instance_lockfile.close()
+                raise
+        else:
+            _instance_lockfile = open(lockfile, 'w')
+            import fcntl
+            try:
+                fcntl.flock(_instance_lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as e:
+                _instance_lockfile.close()
+                raise
+    except Exception:
+        tk.Tk().withdraw()
+        messagebox.showerror(
+            "Already Running",
+            "Another instance of CombinePDFs is already running.\n\nOnly one instance is allowed at a time."
+        )
+        sys.exit(1)
+    atexit.register(_release_single_instance_lock)
+
+def _release_single_instance_lock():
+    global _instance_lockfile
+    if _instance_lockfile:
+        try:
+            if os.name == 'nt':
+                import msvcrt
+                _instance_lockfile.seek(0)
+                msvcrt.locking(_instance_lockfile.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(_instance_lockfile, fcntl.LOCK_UN)
+        except Exception:
+            pass
+        try:
+            _instance_lockfile.close()
+        except Exception:
+            pass
+        _instance_lockfile = None
 
 __VERSION__ = "2.1.0"
 
@@ -2275,6 +2331,9 @@ class CombinePDFsUI:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+
+    # Enforce single instance
+    _acquire_single_instance_lock()
 
     # Enable DPI awareness on Windows
     try:
