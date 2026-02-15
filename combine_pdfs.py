@@ -1366,15 +1366,40 @@ class CombinePDFsUI:
         owner_pw_group.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         owner_pw_group.columnconfigure(1, weight=1)
 
+
         # Helper to add password entry with eye icon aligned right
         def add_pw_row(parent, label, row, var, padx=(8,0), pady=(0,0)):
             ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=pady)
             entry_frame = ttk.Frame(parent)
             entry_frame.grid(row=row, column=1, sticky="ew", pady=pady, padx=padx)
             entry_frame.columnconfigure(0, weight=1)
-            entry = ttk.Entry(entry_frame, textvariable=var, show="*", width=38)
+            entry = ttk.Entry(entry_frame, textvariable=var, show="*", width=44)
             entry.grid(row=0, column=0, sticky="ew")
-            show = {'state': False}
+            # Eyeball button to toggle show/hide
+            def toggle():
+                if entry.cget('show') == '':
+                    entry.config(show='*')
+                    btn.config(text='👁')
+                else:
+                    entry.config(show='')
+                    btn.config(text='🙈')
+            btn = tk.Button(entry_frame, text='👁', width=2, command=toggle, relief='flat', padx=0)
+            btn.grid(row=0, column=1, sticky="e", padx=(4,0))
+            self._encryption_controls.append(entry)
+            self._encryption_controls.append(btn)
+
+        # Add user password fields
+        add_pw_row(user_pw_group, "Password:", 0, self.var_encrypt_user_pw)
+        add_pw_row(user_pw_group, "Confirm:", 1, self.var_encrypt_user_pw2)
+
+        # Add owner password fields
+        add_pw_row(owner_pw_group, "Password:", 0, self.var_encrypt_owner_pw)
+        add_pw_row(owner_pw_group, "Confirm:", 1, self.var_encrypt_owner_pw2)
+
+        # Add warning label for password mismatch
+        self.encrypt_pw_warning = ttk.Label(frame, text="", foreground="red")
+        self.encrypt_pw_warning.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self._encryption_controls.append(self.encrypt_pw_warning)
 
         def on_encrypt_enabled(*args):
             set_encryption_controls_state(self.var_encrypt_enabled.get())
