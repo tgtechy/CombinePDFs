@@ -362,6 +362,7 @@ def merge_files(
     if progress_callback:
         progress_callback(len(files), len(files), "Writing combined PDF...")
 
+
     with open(out_path, "wb") as out_file:
         if options.compression_enabled:
             for page in pdf_writer.pages:

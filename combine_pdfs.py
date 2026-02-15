@@ -2045,22 +2045,41 @@ class CombinePDFsUI:
             self._progress_dialog.close()
             self._progress_dialog = None
 
+
         if self._merge_error:
             err_msg = str(self._merge_error)
-            file_name = None
             import re
-            # Try to extract filename for PDF or image errors
-            pdf_match = re.match(r"([\w\-.\\/:]+\.pdf)", err_msg)
-            img_match = re.search(r"image file '([\w\-.\\/:]+)'", err_msg)
-            if pdf_match:
-                file_name = pdf_match.group(1)
-            elif img_match:
-                file_name = img_match.group(1)
-            # Also try to extract image file from error message
-            if file_name:
-                messagebox.showerror("Merge failed", f"File: {file_name}\n\n{err_msg}", parent=self.root)
+            # Check for permission denied error (file open in another program)
+            if (isinstance(self._merge_error, PermissionError) or
+                'Permission denied' in err_msg or
+                'being used by another process' in err_msg):
+                warning_img_path = str(Path(__file__).resolve().parent / "images" / "warning.png")
+                show_custom_dialog(
+                    self.root,
+                    title="Cannot Write Output File",
+                    message="The output file could not be written.\n\nIt may be open in another program (such as a PDF viewer).\n\nPlease close the file and try again.",
+                    icon=warning_img_path,
+                    buttons=["OK"],
+                    default="OK",
+                    cancel="OK",
+                    width=520,
+                    height=250,
+                    wraplength=320,
+                    style="WinButton.TButton"
+                )
             else:
-                messagebox.showerror("Merge failed", err_msg, parent=self.root)
+                file_name = None
+                # Try to extract filename for PDF or image errors
+                pdf_match = re.match(r"([\w\-.\\/:]+\.pdf)", err_msg)
+                img_match = re.search(r"image file '([\w\-.\\/:]+)'", err_msg)
+                if pdf_match:
+                    file_name = pdf_match.group(1)
+                elif img_match:
+                    file_name = img_match.group(1)
+                if file_name:
+                    messagebox.showerror("Merge failed", f"File: {file_name}\n\n{err_msg}", parent=self.root)
+                else:
+                    messagebox.showerror("Merge failed", err_msg, parent=self.root)
         else:
             self._show_merge_done_dialog()
 
