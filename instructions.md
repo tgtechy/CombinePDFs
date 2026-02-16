@@ -25,7 +25,7 @@ Sorting
 Click column headers (Filename, File Size, Date) to sort the list. Sorting resets any custom ordering. Click again to reverse the sort order. An up arrow means ascending order; a down arrow means descending order.
 
 File List Properties
-To adjust the Pages, Reverse, and Rotation properties, double click in the column cell of the file you want to process and set them to your need.
+*** To adjust the Pages, Reverse, and Rotation properties for a file, double click in the column cell of the file you want to process and set them to your needs ***
 Pages: Specify which pages to extract from the file using these rules:
   "All" or leave empty to include all pages.
   Single page: 5

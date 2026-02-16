@@ -7,7 +7,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional
 import ttkbootstrap as tb
-#from ttkbootstrap.widgets import Tooltip
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
