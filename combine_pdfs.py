@@ -2320,15 +2320,15 @@ class CombinePDFsUI:
 
             # Compose detail block (multi-line, readable)
             file_details.append(
-                f"{file_number}. {path}\n"
-                f"    Pages:     {pages_extracted}\n"
-                f"    Reversed:  {reverse_str}\n"
-                f"    Rotation:  {rotation_str}°"
+                f"{file_number:>3}. {path}\n"
+                f"     Pages: {pages_extracted}"
+                f"  Reversed: {reverse_str}"
+                f"  Rotation: {rotation_str}°"
             )
 
             file_number += 1
 
-        file_details_str = "\n\n".join(file_details)
+        file_details_str = "\n".join(file_details)
         info = (
             f"Merged PDF created successfully.\n\n"
             f"Files combined: {file_count}\n"
