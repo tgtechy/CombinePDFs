@@ -7,6 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional
 import ttkbootstrap as tb
+#from ttkbootstrap.widgets import Tooltip
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -813,7 +814,9 @@ class CombinePDFsUI:
         self._preview_after_id = None
         self.tree.bind('<Motion>', self._on_tree_motion)
         self.tree.bind('<Leave>', self.hide_preview)
+        # ...existing code...
         # --- End file list subframe ---
+        # ...existing code...
         self._refresh_tree()
         self._update_status_bar()
         return
