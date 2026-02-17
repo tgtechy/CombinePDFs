@@ -639,25 +639,57 @@ class CombinePDFsUI:
         # --- Help Tab (HTML Viewer) ---
         from core.htmlview import HtmlHelpViewer
 
-        help_tab = HtmlHelpViewer(
-            notebook,
-            initial_theme="dark" if getattr(self.settings, 'dark_mode', False) else "light"
-        )
+        # --- Help Tab (HTML Viewer) ---
+        from core.htmlview import HtmlHelpViewer
+
+        # Create Help tab container
+        help_tab_container = ttk.Frame(notebook)
+        help_tab_container.rowconfigure(1, weight=1)
+        help_tab_container.columnconfigure(0, weight=1)
+
+        # Add Save to HTML button at the top
+        help_btn_frame = ttk.Frame(help_tab_container)
+        help_btn_frame.grid(row=0, column=0, sticky="ew", pady=(4, 0))
+        from ttkbootstrap import Button as TBButton
 
         # Load and rewrite HTML
         html_file = resource_path("instructions.html")
         with open(html_file, "r", encoding="utf-8") as f:
             html = f.read()
 
-        # Rewrite image paths (VSCode + EXE compatible)
         images_path = resource_path("images").replace("\\", "/")
         images_url = "file:///" + images_path + "/"
         html = html.replace("images/", images_url)
 
-        # Load into viewer
-        help_tab.load_html(html)
+        def save_help_to_html():
+            from tkinter import filedialog, messagebox
+            html_path = filedialog.asksaveasfilename(
+                parent=self.root,
+                title="Save Help as HTML",
+                defaultextension=".html",
+                filetypes=[("HTML files", "*.html"), ("All files", "*.*")],
+                initialfile="HelpContents.html"
+            )
+            if not html_path:
+                return
+            try:
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(html)
+                messagebox.showinfo("Success", f"Help contents saved as HTML:\n{html_path}", parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Save Failed", f"Could not save HTML file.\nError: {e}", parent=self.root)
 
-        notebook.add(help_tab, text="Help")
+        TBButton(help_btn_frame, text="Save to HTML", command=save_help_to_html, style="WinButton.TButton", width=16).pack(side="right", padx=(0, 12))
+
+        # Add HtmlHelpViewer below the button
+        help_viewer = HtmlHelpViewer(
+            help_tab_container,
+            initial_theme="dark" if getattr(self.settings, 'dark_mode', False) else "light"
+        )
+        help_viewer.grid(row=1, column=0, sticky="nsew")
+        help_viewer.load_html(html)
+
+        notebook.add(help_tab_container, text="Help")
 
         # Update help tab theme when Dark Mode is toggled
         def update_help_tab_theme(*args):
