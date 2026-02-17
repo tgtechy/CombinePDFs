@@ -403,6 +403,18 @@ class CombinePDFsUI:
     
     def _setup_styles(self):
         style = tb.Style()
+        # Add vertical break lines between Treeview header columns
+        style.configure(
+            "Treeview.Heading",
+            background="#f3f3f3",
+            foreground="#000000",
+            borderwidth=1,
+            relief="flat",          # clean, modern
+            bordercolor="#d0d0d0",
+            padding=2
+        )
+
+
         # Patch ttkbootstrap palette to force all buttons to use light gray background and black text
         style = tb.Style()
         # The following palette patch is disabled due to incompatibility with recent ttkbootstrap versions
