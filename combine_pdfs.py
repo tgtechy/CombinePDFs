@@ -631,37 +631,19 @@ class CombinePDFsUI:
         self._build_settings_notebook(options_tab)
         notebook.add(options_tab, text="⚙️ Options & Settings")
 
-        # --- Instructions Tab ---
-        instructions_tab = tk.Frame(notebook, bg=cb_bg)
-        instructions_tab.rowconfigure(0, weight=1)
-        instructions_tab.columnconfigure(0, weight=1)
-
-        # Add a scrollable Text widget
-        from tkinter import scrolledtext
-        instructions_textbox = scrolledtext.ScrolledText(
-            instructions_tab,
-            wrap="word",
-            font=("Segoe UI", 10),
-            bg=cb_bg,
-            relief="flat",
-            borderwidth=0,
-            state="normal",
-            height=30,
-            width=90
+        # --- Help Tab (HTML Viewer) ---
+        from core.htmlview import HtmlHelpViewer
+        help_tab = HtmlHelpViewer(
+            notebook,
+            initial_theme="dark" if getattr(self.settings, 'dark_mode', False) else "light",
+            html_path="instructions.html"
         )
-        instructions_textbox.grid(row=0, column=0, sticky="nsew", padx=16, pady=16)
-        instructions_tab.rowconfigure(0, weight=1)
-        instructions_tab.columnconfigure(0, weight=1)
+        notebook.add(help_tab, text="Help")
 
-        # Load instructions.md content
-        try:
-            with open(os.path.join(ROOT, "instructions.md"), "r", encoding="utf-8") as f:
-                instructions_content = f.read()
-        except Exception as e:
-            instructions_content = f"Could not load instructions.md: {e}"
-        instructions_textbox.insert("1.0", instructions_content)
-        instructions_textbox.config(state="disabled")
-        notebook.add(instructions_tab, text="❓ Instructions")
+        # Update help tab theme when Dark Mode is toggled
+        def update_help_tab_theme(*args):
+            help_tab.set_theme("dark" if self.var_dark_mode.get() else "light")
+        self.var_dark_mode.trace_add('write', update_help_tab_theme)
 
         # --- Output controls at the bottom ---
         bottom = ttk.Frame(self.root, padding=(10, 0, 10, 10))
