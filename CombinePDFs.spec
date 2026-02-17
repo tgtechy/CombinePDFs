@@ -8,10 +8,15 @@ a = Analysis(
     datas=[
         ('pdfcombinericon.png', '.'),
         ('pdfcombinericon.ico', '.'),
-        ('instructions.md', '.'),
+        ('instructions.html', '.'),
         ('images/splashscreen.png', 'images'),
         ('images/warning.png', 'images'),
         ('images/check.png', 'images'),
+        ('images/individualfile.png', 'images'),
+        ('images/splashscreen_smaller.png', 'images'),
+        ('images/mainscreenbuttons.png', 'images'),
+        ('images/options.png', 'images'),
+ 
     ],
     hiddenimports=['PyPDF2', 'fitz', 'PIL', 'PIL.Image', 'PIL.ImageTk'],
     hookspath=[],

@@ -65,8 +65,13 @@ def _release_single_instance_lock():
             pass
         _instance_lockfile = None
 
+def resource_path(relative):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.join(os.path.abspath("."), relative)
 
-__VERSION__ = "2.1.0"
+
+__VERSION__ = "2.1.1"
 
 # ---------------------------------------------------------------------------
 # Reusable helpers for widget state and custom dialogs
@@ -633,16 +638,31 @@ class CombinePDFsUI:
 
         # --- Help Tab (HTML Viewer) ---
         from core.htmlview import HtmlHelpViewer
+
         help_tab = HtmlHelpViewer(
             notebook,
-            initial_theme="dark" if getattr(self.settings, 'dark_mode', False) else "light",
-            html_path="instructions.html"
+            initial_theme="dark" if getattr(self.settings, 'dark_mode', False) else "light"
         )
+
+        # Load and rewrite HTML
+        html_file = resource_path("instructions.html")
+        with open(html_file, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        # Rewrite image paths (VSCode + EXE compatible)
+        images_path = resource_path("images").replace("\\", "/")
+        images_url = "file:///" + images_path + "/"
+        html = html.replace("images/", images_url)
+
+        # Load into viewer
+        help_tab.load_html(html)
+
         notebook.add(help_tab, text="Help")
 
         # Update help tab theme when Dark Mode is toggled
         def update_help_tab_theme(*args):
             help_tab.set_theme("dark" if self.var_dark_mode.get() else "light")
+
         self.var_dark_mode.trace_add('write', update_help_tab_theme)
 
         # --- Output controls at the bottom ---
@@ -700,9 +720,9 @@ class CombinePDFsUI:
             text="Like this? Donate!",
             fg="#1976d2",
             cursor="hand2",
-            font=("Segoe UI", 8, "underline")
+            font=("Segoe UI", 9, "underline")
         )
-        donate_label.grid(row=0, column=0, sticky="w", padx=4)
+        donate_label.grid(row=0, column=0, sticky="w", padx=4, pady=0)
         donate_label.bind("<Button-1>", open_donate_link)
         # Force blue color in case theme overrides it
         donate_label.config(fg="#1976d2", foreground="#1976d2", highlightcolor="#1976d2", activeforeground="#1976d2")
@@ -712,9 +732,9 @@ class CombinePDFsUI:
             text=f"©2026 tgtech v{__VERSION__}",
             fg="#1976d2",
             cursor="hand2",
-            font=("Segoe UI", 8, "underline")
+            font=("Segoe UI", 9, "underline")
         )
-        version_label.grid(row=0, column=1, sticky="e", padx=(0, 10))
+        version_label.grid(row=0, column=1, sticky="e", padx=(0, 10), pady=0)
         version_label.bind("<Button-1>", open_github_link)
         version_label.config(fg="#1976d2", foreground="#1976d2", highlightcolor="#1976d2", activeforeground="#1976d2")
 

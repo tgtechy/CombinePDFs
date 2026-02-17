@@ -33,8 +33,6 @@ class HtmlHelpViewer(ttk.Frame):
         # HTML viewer
         self.browser = HtmlFrame(self, horizontal_scrollbar="auto", messages_enabled=False)
         self.browser.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        # Load HTML file immediately
-        self._load_html_file()
 
     # ---------- Public API ----------
 
@@ -53,21 +51,34 @@ class HtmlHelpViewer(ttk.Frame):
 
     # ---------- Internal helpers ----------
 
-    # _on_theme_change removed (theme is now set programmatically)
+    def load_html(self, html: str):
+        """Public method to load raw HTML into the viewer."""
+        self._base_html = html
+        themed_html = self._inject_theme_css(html, self.current_theme)
+        try:
+            self.browser.load_html(themed_html)
+        except AttributeError:
+            self.browser.set_content(themed_html)
+
+        # _on_theme_change removed (theme is now set programmatically)
 
     def _load_html_file(self):
-        """Reads instructions.html and loads it into the viewer."""
         if not os.path.exists(self.html_path):
             self._base_html = f"<h1>Missing File</h1><p>{self.html_path} not found.</p>"
         else:
             with open(self.html_path, "r", encoding="utf-8") as f:
-                self._base_html = f.read()
+                raw_html = f.read()
+
+            # NEW: rewrite image paths
+            raw_html = self._rewrite_image_paths(raw_html)
+
+            self._base_html = raw_html
 
         themed_html = self._inject_theme_css(self._base_html, self.current_theme)
+
         try:
             self.browser.load_html(themed_html)
         except AttributeError:
-            # Fallback for older tkinterweb versions
             self.browser.set_content(themed_html)
 
     def _inject_theme_css(self, html: str, theme: str) -> str:
@@ -125,3 +136,18 @@ class HtmlHelpViewer(ttk.Frame):
 
         # No HTML structure → wrap it
         return f"<html><head>{style_block}</head><body>{html}</body></html>"
+    
+    def _rewrite_image_paths(self, html: str) -> str:
+        """Rewrites relative image paths to absolute paths (PyInstaller-safe)."""
+        import sys
+
+        # Determine base path (normal run or PyInstaller bundle)
+        if hasattr(sys, "_MEIPASS"):
+            base = sys._MEIPASS
+        else:
+            base = os.path.abspath(".")
+
+        images_path = os.path.join(base, "images").replace("\\", "/")
+
+        # Rewrite all occurrences of images/
+        return html.replace("images/", images_path + "/")
