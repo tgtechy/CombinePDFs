@@ -414,7 +414,6 @@ class CombinePDFsUI:
             padding=2
         )
 
-
         # Patch ttkbootstrap palette to force all buttons to use light gray background and black text
         style = tb.Style()
         # The following palette patch is disabled due to incompatibility with recent ttkbootstrap versions
