@@ -3,11 +3,11 @@
   "MD041": false
 } -->
 <div align="center">
-
-# PDF Combiner
+PDF Combiner
 Merge multiple PDF documents and images into a single file
 </div>
 PDF Combiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
+
 
 <p align="left">
   <img src="images/splashscreen_small.png" width="400">
