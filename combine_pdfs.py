@@ -711,15 +711,12 @@ class CombinePDFsUI:
         # Use bootstyle for Windows-like button in light mode
         from ttkbootstrap import Button as TBButton
         TBButton(bottom, text="Browse...", command=self.on_browse_output, style="WinButton.TButton", width=12).grid(row=0, column=2)
-        # Remove Merge button from here
-
 
         # Merge, Quit, and Donate link row
-        bottom_frame = ttk.Frame(self.root, padding=(10, 0, 10, 20))
+        bottom_frame = ttk.Frame(self.root, padding=(10, 0, 10, 0))
         bottom_frame.grid(row=2, column=0, sticky="ew", pady=0)
         # Use pack: donate link left, button group centered with expand
         btn_width = 16
-
 
         # Donate link at the very bottom, centered
         def open_donate_link(event=None):
@@ -730,17 +727,15 @@ class CombinePDFsUI:
             import webbrowser
             webbrowser.open_new("https://github.com/tgtechy/CombinePDFs")
 
-
         # Centered button group
         btns_frame = ttk.Frame(bottom_frame)
         btns_frame.pack(side="left", expand=True, anchor="center")
         TBButton(btns_frame, text="Merge", command=self.on_merge_clicked, style="WinButton.TButton", width=btn_width).pack(side="left", padx=(0, 10))
         TBButton(btns_frame, text="Quit", command=self._on_exit, style="WinButton.TButton", width=btn_width).pack(side="left", padx=(10, 0))
 
-
         # Donate link and version above the status bar, same row
         link_version_frame = ttk.Frame(self.root)
-        link_version_frame.grid(row=3, column=0, sticky="ew", pady=0)
+        link_version_frame.grid(row=3, column=0, sticky="ew", pady=(2,0))
         link_version_frame.columnconfigure(0, weight=1)
         link_version_frame.columnconfigure(1, weight=1)
 
@@ -749,12 +744,23 @@ class CombinePDFsUI:
             text="Like this? Donate!",
             fg="#1976d2",
             cursor="hand2",
-            font=("Segoe UI", 9, "underline")
+            font=("Segoe UI", 9, "bold underline")
         )
+
         donate_label.grid(row=0, column=0, sticky="w", padx=4, pady=0)
         donate_label.bind("<Button-1>", open_donate_link)
         # Force blue color in case theme overrides it
         donate_label.config(fg="#1976d2", foreground="#1976d2", highlightcolor="#1976d2", activeforeground="#1976d2")
+
+        def on_enter(e):
+            font=("Segoe UI", 9, "bold underline")
+            donate_label.config(fg="#0d47a1")
+
+        def on_leave(e):
+            donate_label.config(fg="#1976d2", font=("Segoe UI", 9, "bold underline"))
+
+        donate_label.bind("<Enter>", on_enter)
+        donate_label.bind("<Leave>", on_leave)
 
         version_label = tk.Label(
             link_version_frame,
