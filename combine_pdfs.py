@@ -639,9 +639,6 @@ class CombinePDFsUI:
         # --- Help Tab (HTML Viewer) ---
         from core.htmlview import HtmlHelpViewer
 
-        # --- Help Tab (HTML Viewer) ---
-        from core.htmlview import HtmlHelpViewer
-
         # Create Help tab container
         help_tab_container = ttk.Frame(notebook)
         help_tab_container.rowconfigure(1, weight=1)
@@ -693,8 +690,8 @@ class CombinePDFsUI:
 
         # Update help tab theme when Dark Mode is toggled
         def update_help_tab_theme(*args):
-            help_tab.set_theme("dark" if self.var_dark_mode.get() else "light")
-
+            help_viewer.set_theme("dark" if self.var_dark_mode.get() else "light")
+        
         self.var_dark_mode.trace_add('write', update_help_tab_theme)
 
         # --- Output controls at the bottom ---
