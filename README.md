@@ -2,11 +2,11 @@
 <p align="center">Merge multiple PDF documents and images into a single file</p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/v/release/tgtechy/PDFCombiner?label=Version&color=blue">
-  <img src="https://img.shields.io/github/downloads/tgtechy/PDFCombiner/total?color=brightgreen">
+  <img src="https://img.shields.io/github/v/release/tgtechy/CombinePDFs?label=Version&color=blue">
+  <img src="https://img.shields.io/github/downloads/tgtechy/CombinePDFs/total?color=brightgreen">
   <img src="https://img.shields.io/badge/Windows-10%2F11-blue">
   <img src="https://img.shields.io/badge/Python-3.8%2B-yellow">
-  <img src="https://img.shields.io/github/license/tgtechy/PDFCombiner?color=lightgrey">
+  <img src="https://img.shields.io/github/license/tgtechy/CombinePDFs?color=lightgrey">
 </p>
 
 ---
