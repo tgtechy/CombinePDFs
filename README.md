@@ -23,8 +23,7 @@ To bypass the Windows warning if it appears when trying to install/run, click 'M
 
 <img src="images/windows-protected-your-pc-click2.png?v=3" width="300">
 
-⚠️ About Antivirus False Positives
-The installer is built with Inno Setup and it can occasionally trigger antivirus warnings even when the software is completely safe. This happens because many scanners use heuristic detection, and compressed installer stubs sometimes resemble patterns used by generic malware. New or low‑reputation executables may also be flagged simply because they haven’t been widely downloaded yet. These alerts are false positives — the installer is built directly from the published source code and contains no network activity or external payloads.
+⚠️ About Antivirus False Positives: The installer is built with Inno Setup and it can occasionally trigger antivirus warnings even when the software is completely safe. This happens because many scanners use heuristic detection, and compressed installer stubs sometimes resemble patterns used by generic malware. New or low‑reputation executables may also be flagged simply because they haven’t been widely downloaded yet. These alerts are false positives — the installer is built directly from the published source code and contains no network activity or external payloads.
 
 If you want to make a donation to support further development, [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
 
