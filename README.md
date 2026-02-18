@@ -6,7 +6,7 @@
 <div align="center">
 
 # PDF Combiner
-Merge Multiple PDF Documents into a Single File
+Merge multiple PDF documents and images into a single file
 
 </div>
 
