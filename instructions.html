@@ -7,21 +7,22 @@
 <li><a href="#adding-files">Adding Files to Combine</a></li>
 <li><a href="#main-screen-buttons">Main Screen Buttons</a></li>
 <li><a href="#file-list">The File List</a></li>
-<li><a href="#file-columns">File Pages / Rotation / Reversal Columns</a></li>
+<li><a href="#file-columns">Pages / Rotation / Reversal Columns</a></li>
 <li><a href="#options-settings">Options / Settings</a></li>
 <li><a href="#status-bar">Status Bar</a></li>
 <li><a href="#combining-considerations">Combining Considerations</a></li>
 </ul>
 <hr /><!-- GETTING STARTED -->
 <h2 id="getting-started" style="text-decoration: underline;">Getting Started</h2>
-<p>Use the tabs at the top of the screen to switch between selecting files to add to the file list, configuring output settings/options, and displaying this help file.</p>
-<p>The file list shows the files and the order in which they will be combined. "Merge" and "Combine" are used interchangeably in this application.</p>
+<p>Use the tabs at the top of the screen to switch between selecting files to combine, configuring output settings/options, and displaying this help file.</p>
+<p>"Merge" and "Combine" are used interchangeably in this application.</p>
+<p>The <strong>file list</strong> shows the files in the order in which they will be combined into a single "merged" PDF file.&nbsp;</p>
 <p><a href="#top">Back to Top</a></p>
 <!-- ADDING FILES -->
 <h2 id="adding-files" style="text-decoration: underline;">Adding Files to Combine</h2>
 <ul>
 <li>Supported file formats are: <code>PDF, JPG, JPEG, PNG, BMP, GIF, TIF, and TIFF.</code></li>
-<li>Images are converted to a PDF page during a merge.</li>
+<li>Images are converted a single page PDF during a merge.</li>
 <li>Adding the same file to the list more than once is not permitted.</li>
 <li>PDF files appear in black text; images appear in blue text.</li>
 </ul>
@@ -34,17 +35,17 @@
 <p style="padding-left: 30px;"><strong><u>Add Folder:</u></strong></p>
 <p style="padding-left: 30px;">Click to open a folder browser and select a folder. All files from the folder <u>and</u> its subfolders will be added to the file list.</p>
 <p style="padding-left: 30px;"><strong><u>Remove Selected:</u></strong></p>
-<p style="padding-left: 30px;">Clicking or Ctrl‑Clicking files in the file list will select files. Clicking this button will remove the selected files from the file list. <em>Note: the file will NOT be deleted from disk, only removed from the list.</em></p>
+<p style="padding-left: 30px;">Clicking or Ctrl‑Clicking files in the file list will select files. The selected file rows will be highlighted. Clicking this button will remove the selected file(s) from the file list. <em>Note: the file are NOT deleted from disk, only removed from the list.</em></p>
 <p style="padding-left: 30px;"><strong><u>Move Up:</u></strong></p>
-<p style="padding-left: 30px;">Click this button to move a selected file up in the list.</p>
+<p style="padding-left: 30px;">Click this button to move a selected file up in the list order.</p>
 <p style="padding-left: 30px;"><strong><u>Move Down:</u></strong></p>
-<p style="padding-left: 30px;">Click this button to move a selected file down in the list.</p>
+<p style="padding-left: 30px;">Click this button to move a selected file down in the list order.</p>
 <p style="padding-left: 30px;"><strong><u>Clear All:</u></strong></p>
-<p style="padding-left: 30px;">Clear all the files in the file list regardless of selection.</p>
+<p style="padding-left: 30px;">Clear all the files in the file list regardless of selection.&nbsp;<em>Note: the files are NOT deleted from disk, only removed from the list.</em></p>
 <p style="padding-left: 30px;"><strong><u>Save List:</u></strong></p>
-<p style="padding-left: 30px;">Exports the current file list and per‑file settings (rotation, pages, reversal) to a <code>.pdflist</code> file. Useful for recurring workflows.</p>
+<p style="padding-left: 30px;">Exports the current file list and per‑file settings (rotation, pages, reversal) to a <code>.pdflist</code> file. This is useful for processing sets of files in recurring workflows.</p>
 <p style="padding-left: 30px;"><strong><u>Load List:</u></strong></p>
-<p style="padding-left: 30px;">Imports a previously saved <code>.pdflist</code> file. Saved lists preserve rotation, page ranges, and reverse settings.</p>
+<p style="padding-left: 30px;">Imports a previously saved <code>.pdflist</code> file. Saved lists preserve rotation, page ranges, and reverse settings. The loaded files from the list will be displayed in the file list.</p>
 <p style="padding-left: 30px;"><strong><u>Output File / Browse:</u></strong></p>
 <p style="padding-left: 30px;">Click <strong>Browse</strong> to choose a save location and filename for the combined PDF.</p>
 <p><a href="#top">Back to Top</a></p>
@@ -52,19 +53,19 @@
 <h2 id="file-list" style="text-decoration: underline;">The File List</h2>
 <ul>
 <li>Files are combined in the order shown in the file list.</li>
-<li>You can add files when other files are shown in the list.</li>
+<li>You can add and remove files when other files are shown in the list.</li>
 <li>Hover over a file to see a preview and the file's full path and name.</li>
 <li>Click column headers (Filename, File Size, Date) to sort; click again to reverse.</li>
-<li>Sorting resets manual ordering.</li>
+<li>Note that sorting by a column resets any manual ordering.</li>
 </ul>
 <p><a href="#top">Back to Top</a></p>
 <!-- FILE COLUMNS -->
-<h2 id="file-columns" style="text-decoration: underline;">File Pages / Rotation / Reversal Columns</h2>
+<h2 id="file-columns" style="text-decoration: underline;">Pages / Rotation / Reversal Columns</h2>
 <p><img style="border: 2px solid #888; border-radius: 6px; padding: 4px;" src="images/individualfile.png" alt="File Column Example" /></p>
-<p style="color: #ff0000;"><em><strong> Note: Double‑click in the <u>cell</u> in the Pages, Rotation (Rot), or Reverse (Rev) column on the same line as the file you want to modify. </strong></em></p>
-<h3><em>Pages</em></h3>
+<p style="color: #ff0000;"><em><strong> Note: Double‑click in the <u>cell</u> in the Pages, Rotation (Rot), or Reverse (Rev) column on the same line as the file you want to modify. After double-clicking, the cell becomes editable.</strong></em></p>
+<h3><em>Pages *</em></h3>
 <ul>
-<li>Specifies which pages to extract:
+<li>Specifies which pages to extract from the source file:
 <ul>
 <li><code>All</code> or blank &rarr; include all pages</li>
 <li>Single page: <code>5</code></li>
@@ -72,35 +73,33 @@
 <li>Multiple ranges: <code>1‑3,5,7‑9</code></li>
 </ul>
 </li>
-<li>Not available for images.</li>
 </ul>
 <h3><em>Rotation (Rot)</em></h3>
 <ul>
-<li>Rotate pages or images by 0&deg;, 90&deg;, 180&deg;, or 270&deg; clockwise.</li>
+<li>Rotate pages by 0&deg;, 90&deg;, 180&deg;, or 270&deg; in a clockwise direction.</li>
 <li>Zero (0&deg;) rotation doesn't rotate the image.</li>
 </ul>
-<h3><em>Reverse (Rev)</em></h3>
+<h3><em>Reverse (Rev) *</em></h3>
 <ul>
 <li>Reverses the page order for a file.</li>
-<li>Not available for images.</li>
-<li>An '&#10007;' means the pages won't be reversed, a '&#10003;
-' means they will be.</li>
+<li>An '✗' means the pages won't be reversed, a '✓ ' means they will be.</li>
 </ul>
+<div><em><strong>*</strong> These choices are not applicable for image files since an image is compsed as a single page.</em></div>
 <p><a href="#top">Back to Top</a></p>
 <!-- OPTIONS / SETTINGS -->
 <h2 id="options-settings" style="text-decoration: underline;">Options / Settings</h2>
 <p><img style="border: 2px solid #888; border-radius: 6px; padding: 4px;" src="images/options.png" alt="Options Screen" /></p>
 <ul>
-<li><strong>Add a Table of Contents:</strong> Creates a clickable TOC in the combined PDF.</li>
-<li><strong>Add filename bookmarks:</strong> Creates bookmarks from each source filename.</li>
-<li><strong>Insert breaker pages:</strong> Adds separator pages before each file.</li>
-<li><strong>Scale all breaker pages to uniform size:</strong> Forces consistent dimensions.</li>
-<li><strong>Ignore blank pages:</strong> Skips blank pages unless specifically selected.</li>
-<li><strong>Compression/Quality:</strong> Higher compression reduces size but lowers quality.</li>
-<li><strong>Add PDF metadata:</strong> Set Title, Author, Subject, Keywords.</li>
-<li><strong>Add watermark:</strong> Apply text across all pages with opacity, size, rotation.</li>
-<li><strong>Scaling:</strong> Scale the combined PDF.</li>
-<li><strong>Encryption:</strong> Add user/owner passwords to encrypt the PDF.</li>
+<li><strong>Add a Table of Contents (TOC):</strong> Creates a clickable TOC as the first page in the combined PDF. Creation date and other information may optionally be added to the TOC.</li>
+<li><strong>Add filename bookmarks:</strong> Creates bookmarks from each source filename in the merged PDF.</li>
+<li><strong>Insert breaker pages:</strong> Adds labeled separator pages before each file.</li>
+<li><strong>Scale all breaker pages to uniform size:</strong> Forces consistent dimensions of the breaker pages. If not selected the breaker page is sized the same as the first page of the file it references.</li>
+<li><strong>Ignore blank pages:</strong> Skips blank pages unless they fall in the page range to be extracted.</li>
+<li><strong>Compression/Quality:</strong>&nbsp;Compresses the merged PDF. Higher compression reduces size but lowers quality.</li>
+<li><strong>Add PDF metadata:</strong> Set Title, Author, Subject, Keywords as the metadata for the merged PDF.</li>
+<li><strong>Add watermark:</strong> Apply text across all pages with opacity, size, rotation options.</li>
+<li><strong>Scaling:</strong> Scale the merged PDF.</li>
+<li><strong>Encryption:</strong> Add user/owner passwords to encrypt the merged PDF for security.</li>
 </ul>
 <p><a href="#top">Back to Top</a></p>
 <!-- STATUS BAR -->
@@ -112,11 +111,11 @@
 <!-- COMBINING CONSIDERATIONS -->
 <h2 id="combining-considerations" style="text-decoration: underline;">Combining Considerations</h2>
 <ul>
-<li>Each PDF is fully loaded into RAM; keep individual PDFs under <strong>100 MB</strong>.</li>
-<li>Combining 2&ndash;50 files is typically fast; 50&ndash;100+ depends on RAM and file size.</li>
+<li>Each PDF is fully loaded into RAM, so try to keep individual PDFs under <strong>100 MB</strong>.</li>
+<li>Combining 2&ndash;50 files is typically quite fast. Combining 50&ndash;100+ files quickly depends on the RAM available and merged file size.</li>
 <li>Compression, scaling, and watermarking increase CPU/RAM usage.</li>
 <li>Available system RAM limits maximum workable sizes.</li>
 <li>Output size is limited only by disk space and memory.</li>
-<li>Very large outputs may cause slow progress updates and high memory usage.</li>
+<li>Very large numbers of files or a very large merged file may cause slow progress updates and high memory usage.</li>
 </ul>
 <p><a href="#top">Back to Top</a></p>
