@@ -1,4 +1,14 @@
-# PDF Combiner: Merge Multiple PDF Documents into a Single File
+<!-- markdownlint-configure-file {
+  "MD033": false,
+  "MD041": false
+} -->
+
+<div align="center">
+
+# PDF Combiner
+Merge Multiple PDF Documents into a Single File
+
+</div>
 
 PDF Combiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
 
@@ -54,3 +64,7 @@ pyinstaller --noconfirm CombinePDFs.spec
 
 **Notes**
 - The generated .exe will be in the `dist` folder.
+
+## Disclaimer
+
+Use at your own risk. Although thoroughly tested, software can cause unexpected outcomes. tgtechy is not responsible for data loss or corruption.
