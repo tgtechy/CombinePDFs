@@ -1,64 +1,148 @@
+<h1 align="center">PDF Combiner</h1>
+<p align="center">Merge multiple PDF documents and images into a single file</p>
+
 <p align="center">
-  <h1>PDF Combiner</h1>
-  Merge multiple PDF documents and images into a single file
+  <img src="https://img.shields.io/github/v/release/tgtechy/PDFCombiner?label=Version&color=blue">
+  <img src="https://img.shields.io/github/downloads/tgtechy/PDFCombiner/total?color=brightgreen">
+  <img src="https://img.shields.io/badge/Windows-10%2F11-blue">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-yellow">
+  <img src="https://img.shields.io/github/license/tgtechy/PDFCombiner?color=lightgrey">
 </p>
 
-PDF Combiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
+---
 
+## Table of Contents
+- [Overview](#overview)
+- [Screenshots](#screenshots)
+- [Windows Installation](#windows-installation)
+  - [Installer Verification (SHA‑256)](#installer-verification-sha-256)
+  - [Windows SmartScreen Warning](#windows-smartscreen-warning)
+- [Antivirus False Positives](#antivirus-false-positives)
+- [Donations](#donations)
+- [Build Instructions](#build-instructions)
+  - [Build a Windows Executable Using PyInstaller](#build-a-windows-executable-using-pyinstaller)
+- [FAQ](#faq)
+- [Disclaimer](#disclaimer)
 
-<p align="left">
-  <img src="images/splashscreen_small.png" width="400">
-</p>
+---
 
-<p align="left">
-  <img src="images/inputtab.png" width="400">
-</p>
-<p align="left">
-  <img src="images/optionstab1.png" width="400">
-</p>
+## Overview
+PDF Combiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy.
 
-# Windows Installation and Use
-Click the 'Releases' link on this page then click the PDFCombinerInstaller_X.Y.Z.exe file to download it. Double click the installer to install the app.
-You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown in the release notes to ensure the exe has not been tampered with.
+The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
 
-To bypass the Windows warning if it appears when trying to install/run, click 'More info', then 'Run anyway' as shown below (pics are from Win11, Win10 may be a little different):
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td align="center"><img src="images/splashscreen_small.png" width="350"><br><em>Startup Screen</em></td>
+<td align="center"><img src="images/inputtab.png" width="350"><br><em>Input Files Tab</em></td>
+</tr>
+<tr>
+<td align="center"><img src="images/optionstab1.png" width="350"><br><em>Options Tab</em></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+## Windows Installation
+1. Click **Releases** on the right side of this page.  
+2. Download the latest `PDFCombinerInstaller_X.Y.Z.exe`.  
+3. Double‑click the installer to begin installation.
+
+### Installer Verification (SHA‑256)
+Each release includes a SHA‑256 hash.  
+To verify the installer:
+
+**PowerShell:**
+\`\`\`powershell
+Get-FileHash PDFCombinerInstaller_X.Y.Z.exe -Algorithm SHA256
+\`\`\`
+
+Compare the output to the hash listed in the release notes.  
+If they match, the installer is authentic and untampered.
+
+### Windows SmartScreen Warning
+Because the installer is not digitally signed, Windows may show a SmartScreen warning.
+
+Click:
+1. **More info**  
+2. **Run anyway**
+
+Screenshots:
 
 <img src="images/windows-protected-your-pc-click1.png?v=3" width="300">
-
 <img src="images/windows-protected-your-pc-click2.png?v=3" width="300">
 
-⚠️ About Antivirus False Positives: The installer is built with Inno Setup and it can occasionally trigger antivirus warnings even when the software is completely safe. This happens because many scanners use heuristic detection, and compressed installer stubs sometimes resemble patterns used by generic malware. New or low‑reputation executables may also be flagged simply because they haven’t been widely downloaded yet. These alerts are false positives — the installer is built directly from the published source code and contains no network activity or external payloads.
+---
 
-If you want to make a donation to support further development, [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
+## Antivirus False Positives
+The installer is built with Inno Setup, which can occasionally trigger antivirus warnings due to heuristic detection. This does **not** indicate malicious behavior.
 
-If you would like to build the .exe from scratch rather than download the .exe file in the releases section ...
+Reasons false positives occur:
+- Heuristic scanners sometimes flag compressed installer stubs  
+- New executables with low reputation may be flagged automatically  
+- No network activity or external payloads are included  
 
-## Build Instructions (if you don't want to use the provided pre-compiled .exe)
+The installer is built directly from the published source code.
 
-This project is a Python/Tkinter app to combine PDF files.
+---
 
-### Build a Windows executable using PyInstaller
+## Donations
+If this tool saves you time or helps your workflow, consider supporting development:
+
+### 👉 [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
+
+Your support helps keep the project free, ad‑free, and privacy‑focused.
+
+---
+
+## Build Instructions
+If you prefer to build the executable yourself rather than using the pre‑compiled installer:
+
+This project is a Python/Tkinter application for combining PDF files.
+
+### Build a Windows Executable Using PyInstaller
 
 **Prerequisites**
-- Python 3.8+ installed and on PATH
-- Recommended: create and activate a virtual environment
+- Python 3.8+ installed and on PATH  
+- Recommended: create and activate a virtual environment  
 
-**Quick build (from project root):**
-
-1) Install dependencies (in venv):
-
-```powershell
+**Install dependencies:**
+\`\`\`powershell
 python -m pip install -r requirements.txt
-```
-2) Run PyInstaller:
+\`\`\`
 
-```powershell
+**Build using PyInstaller:**
+\`\`\`powershell
 pyinstaller --noconfirm CombinePDFs.spec
-```
+\`\`\`
 
-**Notes**
-- The generated .exe will be in the `dist` folder.
+The generated `.exe` will appear in the `dist` folder.
+
+---
+
+## FAQ
+
+### **Does the app upload my PDFs anywhere?**
+No. All processing happens locally on your device. No files ever leave your computer.
+
+### **Why does Windows warn me when I run the installer?**
+The installer is unsigned. Unsigned apps trigger SmartScreen warnings by default.
+
+### **Why do some antivirus tools flag the installer?**
+Heuristic scanners sometimes misidentify compressed installers. These are false positives.
+
+### **Can I run this on macOS or Linux?**
+Not currently. The app is designed for Windows 10/11.
+
+### **Can I build it myself?**
+Yes — full build instructions are included above.
+
+---
 
 ## Disclaimer
-
 Use at your own risk. Although thoroughly tested, software can cause unexpected outcomes. tgtechy is not responsible for data loss or corruption.
