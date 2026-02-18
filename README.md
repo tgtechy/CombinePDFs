@@ -25,7 +25,7 @@ To bypass the Windows warning if it appears when trying to install/run, click 'M
 
 If you want to make a donation to support further development, [Donate via PayPal](https://www.paypal.me/tgtechdevshop)
 
-If you would like to build the exe from scratch rather than download the .exe file in the releases section ...
+If you would like to build the .exe from scratch rather than download the .exe file in the releases section ...
 
 ## Build Instructions (if you don't want to use the provided pre-compiled .exe)
 
@@ -65,4 +65,4 @@ pyinstaller --noconfirm CombinePDFs.spec
 ```
 
 **Notes**
-- The generated exe will be in the `dist` folder.
+- The generated .exe will be in the `dist` folder.
