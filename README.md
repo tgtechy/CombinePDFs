@@ -1,6 +1,6 @@
 # PDFCombiner - Merge Several PDF Documents into a Single PDF Document
 
-A free, standalone Windows 10/11 program to combine two or more PDF files into one PDF with lots of options, including page extraction, rotation, bookmarks, encryption and more. Nothing is uploaded/downloaded to the internet, ensuring the privacy of your documents. I was really tired of trying to find a clean, free, no-ad, non-webpage version, so I wrote this.
+A free, standalone Windows 10/11 application for combining two or more PDF files into a single document. It includes powerful options such as page extraction, rotation, bookmarks, encryption, and more. Nothing is ever uploaded or downloaded — all processing happens locally to protect your privacy. After getting tired of searching for a clean, free, ad‑free, non‑web‑based tool, I decided to build one myself.
 
 <p align="left">
   <img src="images/splashscreen_small.png" width="400">
@@ -14,7 +14,7 @@ A free, standalone Windows 10/11 program to combine two or more PDF files into o
 </p>
 
 # Windows Installation and Use
-Click the 'Releases' link on this page then click the CombinePDFInstaller_X.Y.Z.exe file to download it.
+Click the 'Releases' link on this page then click the PDFCombinerInstaller_X.Y.Z.exe file to download it.
 You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown in the release notes to ensure the exe has not been tampered with.
 
 To bypass the Windows warning if it appears when trying to install/run, click 'More info', then 'Run anyway' as shown below (pics are from Win11, Win10 may be a little different):
