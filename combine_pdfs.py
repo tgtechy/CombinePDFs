@@ -660,19 +660,65 @@ class CombinePDFsUI:
 
         def save_help_to_html():
             from tkinter import filedialog, messagebox
+            import os, shutil, re
+            from html import unescape
+            from urllib.parse import urlparse
             html_path = filedialog.asksaveasfilename(
                 parent=self.root,
                 title="Save Help as HTML",
                 defaultextension=".html",
                 filetypes=[("HTML files", "*.html"), ("All files", "*.*")],
-                initialfile="HelpContents.html"
+                initialfile="CombinePDFs_Help.html"
             )
             if not html_path:
                 return
             try:
+                # Find all <img src="..."> references
+                img_pattern = re.compile(r'<img[^>]+src=["\']([^"\'>]+)["\']', re.IGNORECASE)
+                img_srcs = img_pattern.findall(html)
+                # Only process local file:/// images
+                local_imgs = [src for src in img_srcs if src.lower().startswith("file:///")]
+                # Prepare image output folder
+                if local_imgs:
+                    img_folder = os.path.splitext(os.path.basename(html_path))[0] + "_images"
+                    img_folder_path = os.path.join(os.path.dirname(html_path), img_folder)
+                    os.makedirs(img_folder_path, exist_ok=True)
+                    # Map original src to new relative src
+                    src_map = {}
+                    for src in local_imgs:
+                        # Remove file:/// and convert to local path
+                        parsed = urlparse(src)
+                        img_file_path = unescape(parsed.path.lstrip("/\\"))
+                        img_file_name = os.path.basename(img_file_path)
+                        # Avoid name collisions
+                        dest_file_name = img_file_name
+                        dest_path = os.path.join(img_folder_path, dest_file_name)
+                        i = 1
+                        while os.path.exists(dest_path):
+                            name, ext = os.path.splitext(img_file_name)
+                            dest_file_name = f"{name}_{i}{ext}"
+                            dest_path = os.path.join(img_folder_path, dest_file_name)
+                            i += 1
+                        try:
+                            shutil.copyfile(img_file_path, dest_path)
+                            src_map[src] = os.path.join(img_folder, dest_file_name).replace("\\", "/")
+                        except Exception:
+                            # If copy fails, leave src unchanged
+                            pass
+                    # Update HTML to use new relative image paths
+                    def replace_src(match):
+                        orig_src = match.group(1)
+                        new_src = src_map.get(orig_src, orig_src)
+                        return match.group(0).replace(orig_src, new_src)
+                    html_to_save = img_pattern.sub(replace_src, html)
+                else:
+                    html_to_save = html
                 with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(html)
-                messagebox.showinfo("Success", f"Help contents saved as HTML:\n{html_path}", parent=self.root)
+                    f.write(html_to_save)
+                if local_imgs:
+                    messagebox.showinfo("Success", f"Help contents and {len(src_map)} image(s) saved as HTML:\n{html_path}\nImages in: {img_folder}", parent=self.root)
+                else:
+                    messagebox.showinfo("Success", f"Help contents saved as HTML:\n{html_path}", parent=self.root)
             except Exception as e:
                 messagebox.showerror("Save Failed", f"Could not save HTML file.\nError: {e}", parent=self.root)
 
