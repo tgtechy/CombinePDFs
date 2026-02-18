@@ -44,21 +44,7 @@ This project is a Python/Tkinter app to combine PDF files.
 ```powershell
 python -m pip install -r requirements.txt
 ```
-
-2) Build using the helper script (Windows):
-
-```powershell
-.\build_exe.bat
-```
-
-**What the script does**
-- Installs/updates PyInstaller
-- Includes `pdfcombinericon.png` and `pdfcombinericon.ico`
-- Runs PyInstaller to create `dist\CombinePDFs.exe` (single-file, windowed)
-
-**Manual PyInstaller command**
-
-If you prefer to run PyInstaller manually, use:
+2) Run PyInstaller:
 
 ```powershell
 pyinstaller --noconfirm CombinePDFs.spec

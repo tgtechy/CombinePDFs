@@ -47,6 +47,7 @@ combine_pdfs.ico
 combine_pdfs.png
 
 # Build/installer
-CombinePDFs.iss
+PDFCombiner.iss
 update_version_info.py
 compute_hash.ps1
+build_exe.bat
