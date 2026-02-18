@@ -1,6 +1,6 @@
 # PDFCombiner: Merge Multiple PDF Documents into a Single File
 
-PDFCombiner is a free, standalone Windows 10/11 application for merging two or more PDF files into a single document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
+PDFCombiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
 
 <p align="left">
   <img src="images/splashscreen_small.png" width="400">
@@ -14,7 +14,7 @@ PDFCombiner is a free, standalone Windows 10/11 application for merging two or m
 </p>
 
 # Windows Installation and Use
-Click the 'Releases' link on this page then click the PDFCombinerInstaller_X.Y.Z.exe file to download it.
+Click the 'Releases' link on this page then click the PDFCombinerInstaller_X.Y.Z.exe file to download it. Double click the installer to install the app.
 You may get warnings since it is not digitally signed. You can compare the SHA hash of the exe to the one shown in the release notes to ensure the exe has not been tampered with.
 
 To bypass the Windows warning if it appears when trying to install/run, click 'More info', then 'Run anyway' as shown below (pics are from Win11, Win10 may be a little different):
