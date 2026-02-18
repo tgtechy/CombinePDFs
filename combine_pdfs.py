@@ -71,7 +71,7 @@ def resource_path(relative):
     return os.path.join(os.path.abspath("."), relative)
 
 
-__VERSION__ = "2.1.1"
+__VERSION__ = "2.1.2"
 
 # ---------------------------------------------------------------------------
 # Reusable helpers for widget state and custom dialogs
@@ -232,10 +232,10 @@ def get_user_config_path():
     if platform.system() == "Windows":
         appdata = os.environ.get("APPDATA")
         if appdata:
-            return Path(appdata) / "CombinePDFs" / "settings.json"
+            return Path(appdata) / "PDFCombiner" / "settings.json"
     # Fallback for other OS
     home = Path.home()
-    return home / ".combinepdfs_settings.json"
+    return home / ".pdfcombiner_settings.json"
 
 CONFIG_PATH = get_user_config_path()
 
@@ -533,7 +533,7 @@ class CombinePDFsUI:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Combine PDFs")
+        self.root.title("PDF Combiner")
 
         self.files: List[dict] = []
         self.settings = self._load_app_settings()

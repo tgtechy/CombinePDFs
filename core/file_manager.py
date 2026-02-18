@@ -15,7 +15,12 @@ def is_pdf_readable(path: str) -> Tuple[bool, str | None]:
         with open(path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
             if reader.is_encrypted:
-                return False, "Encrypted PDF"
+                # Try to decrypt with empty password (works for permissions-only protection)
+                try:
+                    if reader.decrypt("") == 0:
+                        return False, "Encrypted PDF (cannot decrypt)"
+                except Exception as dec_e:
+                    return False, f"Encrypted PDF (decryption failed): {dec_e}"
         return True, None
     except Exception as e:
         msg = str(e)
