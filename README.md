@@ -10,8 +10,6 @@
 </p>
 
 ---
-
-## Table of Contents
 - [Overview](#overview)
 - [Screenshots](#screenshots)
 - [Windows Installation](#windows-installation)
