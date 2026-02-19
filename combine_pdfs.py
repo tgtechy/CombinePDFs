@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import os
 import sys
@@ -71,7 +70,7 @@ def resource_path(relative):
     return os.path.join(os.path.abspath("."), relative)
 
 
-__VERSION__ = "2.1.2"
+__VERSION__ = "2.1.3"
 
 # ---------------------------------------------------------------------------
 # Reusable helpers for widget state and custom dialogs
@@ -163,7 +162,7 @@ def show_custom_dialog(
     btn_frame = ttk.Frame(dlg)
     btn_frame.grid(row=1, column=0, columnspan=3, pady=(0, 24))
     for i, label in enumerate(buttons):
-        btn = ttk.Button(btn_frame, text=label, command=lambda l=label: on_btn(l), style=style or "WinButton.TButton", width=14)
+        btn = ttk.Button(btn_frame, text=label, command=lambda l=label: on_btn(l), width=14)
         btn.grid(row=0, column=i, padx=(0 if i == 0 else 12, 0))
         if default and label == default:
             btn.focus_set()
@@ -282,7 +281,8 @@ class AppSettings:
     scaling_mode: str = "Fit"
 
     # UI
-    dark_mode: bool = False
+    # Theme persistence
+    selected_theme: str = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "AppSettings":
@@ -343,7 +343,7 @@ class ProgressDialog:
         self.progress.start(10)
 
         from ttkbootstrap import Button as TBButton
-        TBButton(self.top, text="Cancel", command=self._on_cancel, style="WinButton.TButton").grid(row=4, column=0, padx=10, pady=(10, 18), sticky="nsew")
+        TBButton(self.top, text="Cancel", command=self._on_cancel).grid(row=4, column=0, padx=10, pady=(10, 18), sticky="nsew")
 
         self.top.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
@@ -419,117 +419,25 @@ class CombinePDFsUI:
             padding=2
         )
 
-        # Patch ttkbootstrap palette to force all buttons to use light gray background and black text
-        style = tb.Style()
-        # The following palette patch is disabled due to incompatibility with recent ttkbootstrap versions
-        # which do not support item assignment on the Colors object.
-        # If you want to customize button colors, use style.configure or style.map below instead.
-        # Force base TButton style to be light gray with black text (overrides ttkbootstrap dark theme)
-        style.configure('TButton',
-            background='#E1E1E1',
-            foreground='black',
-            font=('Segoe UI', 9, 'normal'),
-            bordercolor='#A9A9A9',
-            borderwidth=1,
-            focusthickness=2,
-            focuscolor='#A9A9A9',
-            relief='raised',
-            padding=(6, 2),
-        )
-        style.map('TButton',
-            background=[('active', '#D5D5D5'), ('pressed', '#C8C8C8'), ('!active', '#E1E1E1'), ('disabled', '#E1E1E1')],
-            foreground=[('active', 'black'), ('pressed', 'black'), ('!active', 'black'), ('disabled', '#888888')],
-            bordercolor=[('focus', '#A9A9A9'), ('!focus', '#A9A9A9')],
-        )
-        # Remove all manual theme sourcing and set_theme calls
-        style.configure('Custom.TNotebook',
-            borderwidth=2,
-            relief='groove',
-            background='#f7f7f7',
-        )
-        style.configure('Custom.TNotebook.Tab',
-            padding=[18, 6],
-            background="#f7f7f7",
-            borderwidth=1,
-            relief='flat',
-            foreground='black',
-            font=('Segoe UI', 9, 'normal'),
-            lightcolor='#e1e1e1',
-            bordercolor='#a9a9a9',
-        )
-        style.map('Custom.TNotebook.Tab',
-            background=[('selected', '#e6f0ff'), ('active', '#e1e1e1'), ('!selected', '#f7f7f7')],
-            foreground=[('selected', 'black'), ('active', 'black'), ('!selected', '#888888')],
-            bordercolor=[('selected', '#1976d2'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
-            font=[('selected', ('Segoe UI', 9, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
-            padding=[('selected', [18, 6]), ('active', [18, 6]), ('!selected', [18, 6])],
-        )
+        # Tab colors (light theme only)
+        tab_bg = '#f7f7f7'
+        tab_fg = 'black'
+        tab_bg_selected = '#e6f0ff'
+        tab_bg_active = '#e1e1e1'
+        tab_fg_selected = 'black'
+        tab_fg_active = 'black'
+        bordercolor = '#a9a9a9'
+        lightcolor = '#e1e1e1'
 
-        # Custom style for settings notebook (General, Watermark, etc.)
-        style.configure('Settings.TNotebook',
-            borderwidth=2,
-            relief='ridge',
-            background='#f7f7f7',
-        )
-        style.configure('Settings.TNotebook.Tab',
-            padding=[16, 5],
-            background="#f7f7f7",
-            borderwidth=1,
-            relief='flat',
-            foreground='black',
-            font=('Segoe UI', 9, 'normal'),
-            lightcolor='#e1e1e1',
-            bordercolor='#a9a9a9',
-        )
-        style.map('Settings.TNotebook.Tab',
-            background=[('selected', "#e6f0ff"), ('active', "#e1e1e1"), ('!selected', "#f7f7f7")],
-            foreground=[('selected', '#003366'), ('active', 'black'), ('!selected', '#888888')],
-            bordercolor=[('selected', '#003366'), ('active', '#a9a9a9'), ('!selected', '#e1e1e1')],
-            font=[('selected', ('Segoe UI', 9, 'bold')), ('active', ('Segoe UI', 9, 'normal')), ('!selected', ('Segoe UI', 9, 'normal'))],
-            padding=[('selected', [16, 2]), ('active', [16, 2]), ('!selected', [16, 2])],
-        )
+        # Remove all custom notebook tab color settings; let theme control appearance
+        style.configure('Custom.TNotebook', borderwidth=2, relief='groove')
+        style.configure('Custom.TNotebook.Tab', padding=[18, 6], borderwidth=1, relief='flat')
+        style.configure('Settings.TNotebook', borderwidth=2, relief='ridge')
+        style.configure('Settings.TNotebook.Tab', padding=[8, 8], borderwidth=1, relief='flat')
 
         # Set ttk.Checkbutton background to match window background
         window_bg = self.root.cget('background') if hasattr(self, 'root') else '#f0f0f0'
         style.configure('TCheckbutton', background=window_bg)
-
-        # Custom Windows 10/11 light-mode button style
-        style.configure('WinButton.TButton',
-            background='#E1E1E1',
-            foreground='black',
-            font=('Segoe UI', 9, 'normal'),
-            bordercolor='#A9A9A9',
-            borderwidth=1,
-            focusthickness=2,
-            focuscolor='#A9A9A9',
-            relief='raised',
-            padding=(6, 2),
-        )
-        style.map('WinButton.TButton',
-            background=[('active', '#D5D5D5'), ('pressed', '#C8C8C8'), ('!active', '#E1E1E1'), ('disabled', '#E1E1E1')],
-            foreground=[('active', 'black'), ('pressed', 'black'), ('!active', 'black'), ('disabled', '#888888')],
-            bordercolor=[('focus', '#A9A9A9'), ('!focus', '#A9A9A9')],
-        )
-
-        # Restyle buttons for light mode to match Windows standard and reduce size
-        # Only apply if not in dark mode
-        if not getattr(self.settings, 'dark_mode', False):
-            # Custom style for all buttons in light mode
-            style.configure('CustomLight.TButton',
-                background='#f0f0f0',
-                foreground='black',
-                font=('Segoe UI', 9, 'normal'),
-                borderwidth=1,
-                focusthickness=2,
-                focuscolor='SystemWindowFrame',
-                relief='raised',
-                padding=(2, 0),
-            )
-            style.map('CustomLight.TButton',
-                background=[('active', '#e5e5e5'), ('pressed', '#e5e5e5'), ('!active', '#f0f0f0')],
-                foreground=[('active', 'black'), ('pressed', 'black'), ('!active', 'black')],
-                font=[('active', ('Segoe UI', 9, 'normal')), ('!active', ('Segoe UI', 9, 'normal'))],
-            )
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -572,7 +480,6 @@ class CombinePDFsUI:
             self.settings.scaling_mode = self.var_scale_mode.get()
             self.settings.scaling_percent = int(self.var_scale_percent.get())
             self.settings.add_breaker_pages = self.var_add_breaker_pages.get()
-            self.settings.dark_mode = self.var_dark_mode.get()
         except Exception:
             pass
         self._save_app_settings()
@@ -603,10 +510,10 @@ class CombinePDFsUI:
     def _build_ui(self) -> None:
         self.status_var = tk.StringVar()
         self._update_status_bar()
+
         self._setup_styles()
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)
-
 
         cb_bg = "#dcdad5"
         main = tk.Frame(self.root, bg=cb_bg)
@@ -629,7 +536,6 @@ class CombinePDFsUI:
         notebook.add(files_tab, text="📄 File List")
 
         # --- Options Tab ---
-
         options_tab = tk.Frame(notebook, bg=cb_bg)
         options_tab.rowconfigure(0, weight=1)
         options_tab.columnconfigure(0, weight=1)
@@ -722,7 +628,7 @@ class CombinePDFsUI:
             except Exception as e:
                 messagebox.showerror("Save Failed", f"Could not save HTML file.\nError: {e}", parent=self.root)
 
-        TBButton(help_btn_frame, text="Save to HTML", command=save_help_to_html, style="WinButton.TButton", width=16).pack(side="right", padx=(0, 12))
+        TBButton(help_btn_frame, text="Save to HTML", command=save_help_to_html, width=16).pack(side="right", padx=(0, 12))
 
         # Add HtmlHelpViewer below the button
         help_viewer = HtmlHelpViewer(
@@ -734,11 +640,6 @@ class CombinePDFsUI:
 
         notebook.add(help_tab_container, text="Help")
 
-        # Update help tab theme when Dark Mode is toggled
-        def update_help_tab_theme(*args):
-            help_viewer.set_theme("dark" if self.var_dark_mode.get() else "light")
-        
-        self.var_dark_mode.trace_add('write', update_help_tab_theme)
 
         # --- Output controls at the bottom ---
         bottom = ttk.Frame(self.root, padding=(10, 0, 10, 10))
@@ -756,7 +657,7 @@ class CombinePDFsUI:
         self.output_var.trace_add('write', on_output_var_change)
         # Use bootstyle for Windows-like button in light mode
         from ttkbootstrap import Button as TBButton
-        TBButton(bottom, text="Browse...", command=self.on_browse_output, style="WinButton.TButton", width=12).grid(row=0, column=2)
+        TBButton(bottom, text="Browse...", command=self.on_browse_output, width=12).grid(row=0, column=2)
 
         # Merge, Quit, and Donate link row
         bottom_frame = ttk.Frame(self.root, padding=(10, 0, 10, 0))
@@ -776,8 +677,8 @@ class CombinePDFsUI:
         # Centered button group
         btns_frame = ttk.Frame(bottom_frame)
         btns_frame.pack(side="left", expand=True, anchor="center")
-        TBButton(btns_frame, text="Merge", command=self.on_merge_clicked, style="WinButton.TButton", width=btn_width).pack(side="left", padx=(0, 10))
-        TBButton(btns_frame, text="Quit", command=self._on_exit, style="WinButton.TButton", width=btn_width).pack(side="left", padx=(10, 0))
+        TBButton(btns_frame, text="Merge", command=self.on_merge_clicked, width=btn_width).pack(side="left", padx=(0, 10))
+        TBButton(btns_frame, text="Quit", command=self._on_exit, width=btn_width).pack(side="left", padx=(10, 0))
 
         # Donate link and version above the status bar, same row
         link_version_frame = ttk.Frame(self.root)
@@ -1176,9 +1077,9 @@ class CombinePDFsUI:
             btn_frame.columnconfigure(i, weight=1)
 
         from ttkbootstrap import Button as TBButton
-        TBButton(btn_frame, text="Add Files...", command=self.on_add_files, style="WinButton.TButton").grid(row=0, column=0, sticky="w")
-        TBButton(btn_frame, text="Add Folder...", command=self.on_add_folder, style="WinButton.TButton").grid(row=0, column=1, sticky="w")
-        TBButton(btn_frame, text="Remove Selected", command=self.on_remove_selected, style="WinButton.TButton").grid(row=0, column=2, sticky="w")
+        TBButton(btn_frame, text="Add Files...", command=self.on_add_files, padding=(6, 2)).grid(row=0, column=0, sticky="w")
+        TBButton(btn_frame, text="Add Folder...", command=self.on_add_folder, padding=(6, 2)).grid(row=0, column=1, sticky="w")
+        TBButton(btn_frame, text="Remove Selected", command=self.on_remove_selected, padding=(6, 2)).grid(row=0, column=2, sticky="w")
 
         # Move Up button with repeat on hold
         self._move_up_repeat_id = None
@@ -1189,7 +1090,7 @@ class CombinePDFsUI:
             if self._move_up_repeat_id:
                 btn_move_up.after_cancel(self._move_up_repeat_id)
                 self._move_up_repeat_id = None
-        btn_move_up = TBButton(btn_frame, text="Move Up", style="WinButton.TButton")
+        btn_move_up = TBButton(btn_frame, text="Move Up", padding=(6, 2))
         btn_move_up.grid(row=0, column=3, sticky="w")
         btn_move_up.bind('<ButtonPress-1>', move_up_press)
         btn_move_up.bind('<ButtonRelease-1>', move_up_release)
@@ -1203,14 +1104,14 @@ class CombinePDFsUI:
             if self._move_down_repeat_id:
                 btn_move_down.after_cancel(self._move_down_repeat_id)
                 self._move_down_repeat_id = None
-        btn_move_down = TBButton(btn_frame, text="Move Down", style="WinButton.TButton")
+        btn_move_down = TBButton(btn_frame, text="Move Down", padding=(6, 2))
         btn_move_down.grid(row=0, column=4, sticky="w")
         btn_move_down.bind('<ButtonPress-1>', move_down_press)
         btn_move_down.bind('<ButtonRelease-1>', move_down_release)
 
-        TBButton(btn_frame, text="Clear All", command=self.on_clear, style="WinButton.TButton").grid(row=0, column=5, sticky="w")
-        TBButton(btn_frame, text="Save List", command=self.on_save_file_list, style="WinButton.TButton").grid(row=0, column=6, sticky="w")
-        TBButton(btn_frame, text="Load List", command=self.on_load_file_list, style="WinButton.TButton").grid(row=0, column=7, sticky="w")
+        TBButton(btn_frame, text="Clear All", command=self.on_clear, padding=(6, 2)).grid(row=0, column=5, sticky="w")
+        TBButton(btn_frame, text="Save List", command=self.on_save_file_list, padding=(6, 2)).grid(row=0, column=6, sticky="w")
+        TBButton(btn_frame, text="Load List", command=self.on_load_file_list, padding=(6, 2)).grid(row=0, column=7, sticky="w")
     def on_add_folder(self) -> None:
         from core.file_manager import add_files_to_list, SUPPORTED_EXTS
         import os
@@ -1340,9 +1241,9 @@ class CombinePDFsUI:
             btn_frame.columnconfigure(0, weight=1)
             btn_frame.columnconfigure(1, weight=1)
             btn_width = 14
-            btn_yes = TBButton(btn_frame, text="Yes", command=on_yes, style="WinButton.TButton", width=btn_width)
+            btn_yes = TBButton(btn_frame, text="Yes", command=on_yes, width=btn_width)
             btn_yes.grid(row=0, column=0, padx=(0, 12))
-            btn_no = TBButton(btn_frame, text="No", command=on_no, style="WinButton.TButton", width=btn_width)
+            btn_no = TBButton(btn_frame, text="No", command=on_no, width=btn_width)
             btn_no.grid(row=0, column=1, padx=(12, 0))
             dlg.protocol("WM_DELETE_WINDOW", on_no)
             dlg.wait_window()
@@ -1412,11 +1313,17 @@ class CombinePDFsUI:
 
     def _build_settings_notebook(self, parent: ttk.Frame) -> None:
 
+        style = ttk.Style()
+        style.configure('Settings.TNotebook.Tab', padding=[8, 8])
         nb = ttk.Notebook(parent, style='Settings.TNotebook')
         nb.grid(row=0, column=0, sticky="nsew", pady=(10,10 ))
 
         parent.rowconfigure(0, weight=1)
         parent.columnconfigure(0, weight=1)
+        # Widen notebook to prevent tab text truncation
+        nb.update_idletasks()
+        nb_width = max(nb.winfo_reqwidth(), 700)
+        nb.config(width=nb_width)
 
         self._build_tab_general(nb)
         self._build_tab_watermark(nb)
@@ -1424,6 +1331,47 @@ class CombinePDFsUI:
         self._build_tab_scaling(nb)
         self._build_tab_compression(nb)
         self._build_tab_encryption(nb)
+        self._build_tab_theme(nb)
+    def _build_tab_theme(self, nb: ttk.Notebook) -> None:
+        import ttkbootstrap as tb
+        frame = ttk.Frame(nb, padding=(30, 24, 30, 10))
+        nb.add(frame, text="🎨 Theme")
+
+
+        # Theme selection dropdown (grid)
+        theme_label = ttk.Label(frame, text="Select Theme:", font=("Segoe UI", 11))
+        theme_label.grid(row=0, column=0, sticky="w", pady=(10, 6), padx=(0, 8))
+
+        # Use 'cosmo' as default if no theme in settings
+        initial_theme = getattr(self.settings, 'selected_theme', None)
+        if not initial_theme:
+            initial_theme = 'cosmo'
+        self.var_theme_tab = tk.StringVar(value=initial_theme)
+        theme_names = tb.Style().theme_names()
+        theme_combo = ttk.Combobox(frame, textvariable=self.var_theme_tab, values=theme_names, state="readonly", width=24)
+        theme_combo.grid(row=0, column=1, sticky="w", pady=(10, 6))
+
+        def on_theme_tab_change(event=None):
+            selected = self.var_theme_tab.get()
+            style = tb.Style()
+            style.theme_use(selected)
+            self.settings.selected_theme = selected
+            self._save_app_settings()
+            # Re-apply saved font color to watermark font color button if watermark tab exists
+            if hasattr(self, 'update_font_color_btn'):
+                self.update_font_color_btn()
+
+        theme_combo.bind("<<ComboboxSelected>>", on_theme_tab_change)
+
+        # Theme info label
+        theme_info = (
+            "\nLight Themes: flatly, litera, lumen, minty, pulse, sandstone, simplex, united, yeti, morph, journal, cosmo\n\n"
+            "Dark Themes: darkly, cyborg, superhero, solar, vapor"
+        )
+        ttk.Label(frame, text=theme_info, justify="left", wraplength=420).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 12))
+
+        # Only theme dropdown remains; always enabled
+        theme_combo.config(state='readonly')
 
     def _build_tab_encryption(self, nb: ttk.Notebook) -> None:
         # Helper to enable/disable encryption controls
@@ -1601,23 +1549,10 @@ class CombinePDFsUI:
         row += 1
         ttk.Checkbutton(frame, text="Add filename bookmarks", variable=self.var_add_filename_bookmarks).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
         row += 1
-        self.var_dark_mode = tk.BooleanVar(value=getattr(self.settings, 'dark_mode', False))
         def on_toc_date_toggle(*args):
             self.settings.toc_insert_date = self.var_toc_insert_date.get()
             self._save_app_settings()
         self.var_toc_insert_date.trace_add('write', on_toc_date_toggle)
-        def on_dark_mode_toggle():
-            self.settings.dark_mode = self.var_dark_mode.get()
-            self._save_app_settings()
-            style = tb.Style()
-            if self.settings.dark_mode:
-                style.theme_use('darkly')
-            else:
-                style.theme_use('flatly')
-        ttk.Checkbutton(frame, text="Dark mode", variable=self.var_dark_mode, command=on_dark_mode_toggle).grid(row=row, column=0, sticky="w", pady=checkbox_pady)
-        row += 1
-        if self.var_dark_mode.get():
-            on_dark_mode_toggle()
 
     def _on_breaker_pages_toggle(self):
         set_widgets_state([self.breaker_uniform_cb], self.var_add_breaker_pages.get())
@@ -1798,8 +1733,12 @@ class CombinePDFsUI:
         ttk.Label(frame, text="Font color:").grid(row=6, column=4, sticky="e", pady=(24, 8), padx=(16, 8))
         font_color_btn = tk.Button(frame, text="Pick Color", command=pick_font_color, bg=self.var_wm_font_color.get(), width=12)
         font_color_btn.grid(row=6, column=5, sticky="w", pady=(24, 8))
-        # Ensure button color matches saved color on startup
-        font_color_btn.config(bg=self.var_wm_font_color.get())
+        # Ensure button color matches saved color on startup and after theme change
+        def update_font_color_btn(*args):
+            font_color_btn.config(bg=self.var_wm_font_color.get())
+        self.update_font_color_btn = update_font_color_btn  # Make accessible from other methods
+        self.var_wm_font_color.trace_add('write', lambda *a: update_font_color_btn())
+        update_font_color_btn()
         self._wm_controls.append(wm_font_entry)
         self._wm_controls.append(font_color_btn)
 
@@ -2598,12 +2537,18 @@ def main() -> None:
     # Load settings to determine theme
     settings = None
     try:
-        settings = load_settings(CONFIG_PATH)
+        settings_dict = load_settings(CONFIG_PATH)
+        from types import SimpleNamespace
+        settings = SimpleNamespace(**settings_dict) if settings_dict else None
     except Exception:
         pass
-    theme = "flatly"
-    if settings and getattr(settings, 'dark_mode', False):
-        theme = "darkly"
+    # Theme selection logic
+    theme = "cosmo"
+    if settings:
+        if getattr(settings, 'selected_theme', None):
+            theme = settings.selected_theme
+        elif getattr(settings, 'dark_mode', False):
+            theme = "darkly"
 
     import time
     from PIL import Image, ImageTk
@@ -2663,4 +2608,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
