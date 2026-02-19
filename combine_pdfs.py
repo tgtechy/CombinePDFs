@@ -1365,8 +1365,8 @@ class CombinePDFsUI:
 
         # Theme info label
         theme_info = (
-            "\nLight Themes: flatly, litera, lumen, minty, pulse, sandstone, simplex, united, yeti, morph, journal, cosmo\n\n"
-            "Dark Themes: darkly, cyborg, superhero, solar, vapor"
+            "\nLight Themes:\nflatly, litera, lumen, minty, pulse, sandstone, simplex, united, yeti, morph, journal, cosmo\n\n"
+            "Dark Themes:\ndarkly, cyborg, superhero, solar, vapor"
         )
         ttk.Label(frame, text=theme_info, justify="left", wraplength=420).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
@@ -1900,7 +1900,7 @@ class CombinePDFsUI:
 
         # Setup tag for blue text if not already present
         if not self.tree.tag_has('imagefile'):
-            self.tree.tag_configure('imagefile', foreground='blue')
+            self.tree.tag_configure('imagefile', foreground="#8856FC")
 
         self.tree.delete(*self.tree.get_children())
 
