@@ -31,7 +31,7 @@ The app was created out of frustration with the lack of simple, free, ad‑free,
 
 ---
 
-## Screenshots
+## Select Screenshots
 
 <table>
 <tr>
