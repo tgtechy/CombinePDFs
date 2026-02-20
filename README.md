@@ -139,7 +139,7 @@ Heuristic scanners sometimes misidentify compressed installers. These are false 
 Not currently. The app is designed for Windows 10/11.
 
 ### **Can I build it myself?**
-Yes — full build instructions are included above.
+Yes — build instructions are included above.
 
 ---
 
