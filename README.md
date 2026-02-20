@@ -143,4 +143,4 @@ Yes — build instructions are included above.
 ---
 
 ## Disclaimer
-Use at your own risk. Although thoroughly tested, software can cause unexpected outcomes. tgtechy is not responsible for data loss or corruption.
+Use this software at your own risk. Although it has been thoroughly tested, software can cause unexpected outcomes. tgtechy is not responsible for data loss or corruption.
