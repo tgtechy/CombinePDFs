@@ -70,7 +70,7 @@ def resource_path(relative):
     return os.path.join(os.path.abspath("."), relative)
 
 
-__VERSION__ = "2.1.3"
+__VERSION__ = "2.1.4"
 
 # ---------------------------------------------------------------------------
 # Reusable helpers for widget state and custom dialogs
@@ -438,6 +438,17 @@ class CombinePDFsUI:
         # Set ttk.Checkbutton background to match window background
         window_bg = self.root.cget('background') if hasattr(self, 'root') else '#f0f0f0'
         style.configure('TCheckbutton', background=window_bg)
+
+        # --- Win11 theme button override ---
+        def _apply_win11_button_override():
+            style.configure('TButton', foreground='black', background='#f3f3f3')
+            style.map('TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
+            style.configure('primary.TButton', foreground='black', background='#f3f3f3')
+            style.map('primary.TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
+
+        current_theme = style.theme_use()
+        if current_theme.lower() == "win11" or (getattr(self, 'var_theme_tab', None) and self.var_theme_tab.get().lower() == "win11"):
+            _apply_win11_button_override()
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -1342,10 +1353,10 @@ class CombinePDFsUI:
         theme_label = ttk.Label(frame, text="Select Theme:", font=("Segoe UI", 11))
         theme_label.grid(row=0, column=0, sticky="w", pady=(10, 6), padx=(0, 8))
 
-        # Use 'cosmo' as default if no theme in settings
+        # Use default if no theme in settings
         initial_theme = getattr(self.settings, 'selected_theme', None)
         if not initial_theme:
-            initial_theme = 'cosmo'
+            initial_theme = 'win11'
         self.var_theme_tab = tk.StringVar(value=initial_theme)
         theme_names = tb.Style().theme_names()
         theme_combo = ttk.Combobox(frame, textvariable=self.var_theme_tab, values=theme_names, state="readonly", width=24)
@@ -1357,6 +1368,14 @@ class CombinePDFsUI:
             style.theme_use(selected)
             self.settings.selected_theme = selected
             self._save_app_settings()
+            # Win11 button override
+            if selected.lower() == "win11":
+                def _apply_win11_button_override():
+                    style.configure('TButton', foreground='black', background='#f3f3f3')
+                    style.map('TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
+                    style.configure('primary.TButton', foreground='black', background='#f3f3f3')
+                    style.map('primary.TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
+                _apply_win11_button_override()
             # Re-apply saved font color to watermark font color button if watermark tab exists
             if hasattr(self, 'update_font_color_btn'):
                 self.update_font_color_btn()
@@ -2543,12 +2562,19 @@ def main() -> None:
     except Exception:
         pass
     # Theme selection logic
-    theme = "cosmo"
+    theme = "Win11"
     if settings:
         if getattr(settings, 'selected_theme', None):
             theme = settings.selected_theme
-        elif getattr(settings, 'dark_mode', False):
-            theme = "darkly"
+
+    # If Win11 theme, apply button override after window creation
+    def _apply_win11_button_override():
+        import ttkbootstrap as tb
+        style = tb.Style()
+        style.configure('TButton', foreground='black', background='#f3f3f3')
+        style.map('TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
+        style.configure('primary.TButton', foreground='black', background='#f3f3f3')
+        style.map('primary.TButton', foreground=[('active', 'black'), ('disabled', '#888888')])
 
     import time
     from PIL import Image, ImageTk
@@ -2600,6 +2626,10 @@ def main() -> None:
     x = (screen_width // 2) - (width // 2)
     y = (screen_height // 2) - (height // 2)
     root.geometry(f"{width}x{height}+{x}+{y}")
+
+    # Apply Win11 button override if needed
+    if theme.lower() == "win11":
+        _apply_win11_button_override()
 
     CombinePDFsUI(root)
     root.deiconify()  # Show window after centering
