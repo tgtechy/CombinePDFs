@@ -25,7 +25,7 @@
 ---
 
 ## Overview
-PDF Combiner is a free, standalone Windows 10/11 application for merging two or more PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, dark mode, and much more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy.
+PDF Combiner is a free, standalone Windows 10/11 application for merging multiple PDF files and/or images into a single PDF document. It offers powerful features such as selective page extraction, rotation, bookmarks, encryption, and much more. No data is ever uploaded or downloaded — all processing happens entirely on your device to protect your privacy. The GUI is designed to be intuitive with a clean layout with several theme choices. 
 
 The app was created out of frustration with the lack of simple, free, ad‑free, privacy‑focused PDF combining tools.
 
