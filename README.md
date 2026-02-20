@@ -41,7 +41,6 @@ The app was created out of frustration with the lack of simple, free, ad‑free,
 <tr>
 <td align="center"><img src="images/optionstab1.png" width="350"><br><em>General Options Tab</em></td>
 <td align="center"><img src="images/optionstab2.png" width="350"><br><em>Watermark Options Tab</em></td>
-<td></td>
 </tr>
 </table>
 
