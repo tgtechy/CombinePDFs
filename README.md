@@ -47,7 +47,7 @@ The app was created out of frustration with the lack of simple, free, ad‑free,
 ---
 
 ## Windows Installation
-1. Click **Releases** link on this page.  
+1. Click the **Releases** link on this page.  
 2. Click the latest `PDFCombinerInstaller_X.Y.Z.exe` link to download the installer.  
 3. Double‑click the installer to begin installation.
 
